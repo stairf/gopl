@@ -102,7 +102,7 @@ sub print_header {
 	print "/*\n * $hdrname\n */\n\n" if $hdrname;
 	print "#ifndef $iguard\n#define $iguard\n\n" if ($iguard);
 
-	print "extern void opt_parse(int argc, char **argv);\n\n";
+	print "extern void opt_parse(int argc, const char **argv);\n\n";
 	print "extern int opt_arg_count(void);\n";
 	print "extern const char *opt_arg_get(int);\n\n";
 	for my $option (@options) {
@@ -137,20 +137,27 @@ sub print_impl {
 
 	print "\n";
 	print "int opt_arg_count(void) {\n\treturn save_argc - first_arg;\n}\n";
-	print "int opt_arg_get(int index) {";
+	print "const char *opt_arg_get(int index) {";
 	print "\n\tif(index < 0 || first_arg + index > save_argc)\n\t\treturn NULL;" if $config{'indexcheck'};
 	print "\n\treturn save_argv[first_arg + index];\n}\n";
 	print "\n";
-	print qq @static void warn_unknown_long(const char *option) {\n\tfprintf(stderr, "unknown option \`%s'", option);\n@;
+	print qq @static void warn_unknown_long(const char *option) {\n\tfprintf(stderr, "unknown option \`%s'\\n", option);\n@;
 	print "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} eq "die");
 	print "}\n";
-	print qq @static void warn_unknown_short(const char option) {\n\tfprintf(stderr, "unknown option \`-%c'", option);\n@;
+	print qq @static void warn_unknown_short(const char option) {\n\tfprintf(stderr, "unknown option \`-%c'\\n", option);\n@;
 	print "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} eq "die");
 	print "}\n";
+	##print qq @static void exit_noValueLong(const char *option) {\n\tfprintf(stderr, "the option `%s' needs a value.\\n", option);\n@;
+	##print "\texit(EXIT_FAILURE);\n}\n";
+	print qq @static void exit_noValueShort(const char option) {\n\tfprintf(stderr, "the option `-%c' needs a value.\\n", option);\n@;
+	print "\texit(EXIT_FAILURE);\n}\n";
 	print "static int streq(const char *a, const char *b) {\n\treturn !strcmp(a,b);\n}\n";
+	print "static const char *strstart(const char *string, const char *start) {\n";
+	print "\tif(!strncmp(string, start, strlen(start)))\n\t\treturn string + strlen(start);";
+	print "\treturn NULL;\n}\n";
 	print "\n";
 	# print opt_parse
-	print "void opt_parse(int argc, char **argv) {\n";
+	print "void opt_parse(int argc, const char **argv) {\n";
 	print "\tsave_argv = argv;\n\tconst char *a;\n";
 	print "\tfor (int i = 1; i < argc; ++i) {\n";
 
@@ -165,18 +172,18 @@ sub print_impl {
 		my $type = $types->{$o->{'type'}};
 		my $assign_func = $type->{'print_assign'};
 		if ($type->{'needs_val'}) {
-			print "\t\ta = strstart(argv[i], \"--$o->{'long'}\");\n";
+			print "\t\ta = strstart(argv[i], \"--$o->{'long'}=\");\n";
 			print "\t\tif (a) {\n";
 			&$assign_func("\t\t\t", "opt_" . $o->{'name'}, "a");
 			print "\t\t\tcontinue;\n\t\t}\n";
 		} else {
-			print "\t\tif (streq(argv[i], \"--$o->{'long'}\") {\n";
+			print "\t\tif (streq(argv[i], \"--$o->{'long'}=\")) {\n";
 			&$assign_func("\t\t\t", "opt_" . $o->{'name'});
 			print "\t\t\tcontinue;\n\t\t}\n";
 		}
 	}
 	print "\t\tif (argv[i][0] == '-' && argv[i][1] == '-') {\n";
-	print "\t\t\twarn_unknwon_long(argv[i]);\n\t\t\tcontinue;\n";
+	print "\t\t\twarn_unknown_long(argv[i]);\n\t\t\tcontinue;\n";
 	print "\t\t}\n";
 	# search short options
 	print "\t\t/* argv[i][0] == '-' && argv[i][1] != '-' */\n";
@@ -186,8 +193,13 @@ sub print_impl {
 		my $assign_func = $type->{'print_assign'};
 		print "\t\t\tif (argv[i][j] == '$o->{short}') {\n";
 		if ($type->{'needs_val'}) {
-			&$assign_func("\t\t\t\t","opt_" . $o->{'name'}, "argv[i] + j + 1");
-			print "\t\t\t\twhile (argv[i][j]) j++;\n";
+			print "\t\t\t\tif (argv[i][j+1]) {\n";
+			&$assign_func("\t\t\t\t\t","opt_" . $o->{'name'}, "argv[i] + j + 1");
+			print "\t\t\t\t\tbreak;\n";
+			print "\t\t\t\t} else {\n\t\t\t\t\ti++;\n";
+			print "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\texit_noValueShort('$o->{short}');\n";
+			&$assign_func("\t\t\t\t\t","opt_" . $o->{'name'}, "argv[i]");
+			print "\t\t\t\t}\n";
 		} else {
 			&$assign_func("\t\t\t\t", "opt_" . $o->{'name'});
 		}
