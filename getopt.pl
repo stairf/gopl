@@ -3,38 +3,52 @@
 our @options;
 our %config;
 our $hdrname = "options.h";
-our $iguard = "__IGUARD__";
+our $iguard = "__OPTIONS_H_INCLUDED__";
+
+sub usage {
+	print "usage: getopt.pl [OPTIONS] config\n";
+	print "options:\n";
+	print "\t-c FILE\tprint .c output to FILE\n";
+	print "\t-h FILE\tprint .h output to FILE\n";
+}
+
 
 my %opts;
 use Getopt::Std;
 getopts("h:c:",\%opts);
+usage, exit 1 unless ($ARGV[0]);
 
 sub declare_var {
 	my ($out, $ctype, $varname,$val,$modifiers,$hasvar) = @_;
-	print $out "$modifiers int opt_has_$varname = 0;\n" if ($hasvar);
-	print $out "$modifiers $ctype opt_$varname";
+	$modifiers .= " " if ($modifiers);
+	print $out $modifiers . "int opt_has_$varname = 0;\n" if ($hasvar);
+	print $out $modifiers . "$ctype opt_$varname";
 	print $out " = $val" if ($val);
 	print $out ";\n\n";
 }
 
 sub declare_get_func {
 	my ($out, $ctype, $varname,$modifiers) = @_;
-	print $out "$modifiers $ctype opt_get_$varname (void);\n\n";
+	$modifiers .= " " if ($modifiers);
+	print $out $modifiers . "$ctype opt_get_$varname (void);\n\n";
 }
 
 sub declare_has_func {
 	my ($out, $varname,$modifiers) = @_;
-	print $out "$modifiers int opt_has_$varname (void);\n\n";
+	$modifiers .= " " if ($modifiers);
+	print $out $modifiers . "int opt_has_$varname (void);\n\n";
 }
 
 sub print_get_func {
 	my ($out, $ctype, $opt, $modifiers, $name) = @_;
-	print $out "$modifiers $ctype opt_get_$opt (void) {\n\treturn opt_$name;\n}\n";
+	$modifiers .= " " if ($modifiers);
+	print $out $modifiers . "$ctype opt_get_$opt (void) {\n\treturn opt_$name;\n}\n";
 }
 
 sub print_has_func {
 	my ($out, $opt, $modifiers, $name) = @_;
-	print $out "$modifiers int opt_has_$opt (void) {\n\treturn opt_has_$name;\n}\n";
+	$modifiers .= " " if ($modifiers);
+	print $out $modifiers . "int opt_has_$opt (void) {\n\treturn opt_has_$name;\n}\n";
 }
 
 sub string_print_assign {
@@ -93,8 +107,14 @@ my $types = {
 };
 
 
-sub unify_options {
+sub verify_options {
+	my %short;
+	my %long;
 	foreach my $option (@options) {
+		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{'short'}});
+		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{'long'}});
+		$short{$option->{'short'}} = 1;
+		$long{$option->{'long'}} = 1;
 		die "option ". %{$option} ." has no name\n" unless (defined $option->{'short'} or defined $option->{'long'});
 		die "option ". %{$option} ." has no type\n" unless (defined $option->{'type'});
 		die "option ". %{$option} ." has an unknown type: $option->{type}\n" unless (defined $types->{$option->{'type'}});
@@ -105,7 +125,7 @@ sub unify_options {
 sub print_header {
 	my ($outfile) = @_;
 	open my $out,">$outfile" or die "$outfile: $!\n";
-	print $out "/*\n * $hdrname\n */\n\n" if $hdrname;
+	print $out "/*\n * $hdrname\n * getopt.pl generated this header file\n */\n\n" if $hdrname;
 	print $out "#ifndef $iguard\n#define $iguard\n\n" if ($iguard);
 
 	print $out "extern void opt_parse(int argc, const char **argv);\n\n";
@@ -128,6 +148,9 @@ sub print_impl {
 	my ($outfile) = @_;
 	open my $out,">$outfile" or die "$outfile: $!\n";
 	print $out "#include \"$hdrname\"\n" if $hdrname;
+	print $out "#include <stdio.h>\n";
+	print $out "#include <stdlib.h>\n";
+	print $out "#include <string.h>\n";
 	print $out "#include $_\n" for (@{$config{'include'}});
 	print $out "\n";
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
@@ -156,23 +179,27 @@ sub print_impl {
 	print $out qq @static void warn_unknown_short(const char option) {\n\tfprintf(stderr, "unknown option \`-%c'\\n", option);\n@;
 	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} eq "die");
 	print $out "}\n";
-	##print qq @static void exit_noValueLong(const char *option) {\n\tfprintf(stderr, "the option `%s' needs a value.\\n", option);\n@;
-	##print "\texit(EXIT_FAILURE);\n}\n";
+	print $out qq @static void exit_noValueLong(const char *option) {\n\tfprintf(stderr, "the option `%s' needs a value.\\n", option);\n@;
+	print $out "\texit(EXIT_FAILURE);\n}\n";
 	print $out qq @static void exit_noValueShort(const char option) {\n\tfprintf(stderr, "the option `-%c' needs a value.\\n", option);\n@;
 	print $out "\texit(EXIT_FAILURE);\n}\n";
 	print $out "static int streq(const char *a, const char *b) {\n\treturn !strcmp(a,b);\n}\n";
 	print $out "static const char *strstart(const char *string, const char *start) {\n";
-	print $out "\tif(!strncmp(string, start, strlen(start)))\n\t\treturn string + strlen(start);";
+	print $out "\tif(!strncmp(string, start, strlen(start)))\n\t\treturn string + strlen(start);\n";
 	print $out "\treturn NULL;\n}\n";
 	print $out "\n";
 	# print opt_parse
 	print $out "void opt_parse(int argc, const char **argv) {\n";
-	print $out "\tsave_argv = argv;\n\tconst char *a;\n";
+	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n\tconst char *a;\n";
 	print $out "\tfor (int i = 1; i < argc; ++i) {\n";
 
 	# argv[i] is argument? ->break
-	print $out "\t\tif (argv[i][0] != '-') {\n";
+	print $out "\t\tif (argv[i][0] != '-' || streq(argv[i], \"-\")) {\n";
 	print $out "\t\t\tfirst_arg = i;\n";
+	print $out "\t\t\treturn;\n";
+	print $out "\t\t}\n";
+	print $out "\t\tif (streq(argv[i], \"--\")) {\n";
+	print $out "\t\t\tfirst_arg = i + 1;\n";
 	print $out "\t\t\treturn;\n";
 	print $out "\t\t}\n";
 
@@ -187,6 +214,13 @@ sub print_impl {
 			print $out "\t\t\topt_has_$name = 1;\n" if ($type->{'generate_has'});
 			&$assign_func($out, "\t\t\t", "opt_" . $o->{'name'}, "a");
 			print $out "\t\t\tcontinue;\n\t\t}\n";
+			print $out "\t\telse if (streq(argv[i], \"--$o->{'long'}\")) {\n";
+			print $out "\t\t\ti++;\n";
+			print $out "\t\t\tif (i == argc)\n\t\t\t\texit_noValueLong(\"--$o->{long}\");\n";
+			print $out "\t\t\topt_has_$name = 1;\n" if ($type->{'generate_has'});
+			&$assign_func($out, "\t\t\t", "opt_" . $o->{'name'}, "argv[i]");
+			print $out "\t\t\tcontinue;\n\t\t}\n";
+
 		} else {
 			print $out "\t\tif (streq(argv[i], \"--$o->{'long'}\")) {\n";
 			print $out "\t\topt_has_$name = 1;\n" if ($type->{'generate_has'});
@@ -214,7 +248,7 @@ sub print_impl {
 			print $out "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\texit_noValueShort('$o->{short}');\n";
 			print $out "\t\t\t\t\topt_has_$name = 1;\n" if ($type->{'generate_has'});
 			&$assign_func($out, "\t\t\t\t\t","opt_" . $o->{'name'}, "argv[i]");
-			print $out "\t\t\t\t}\n";
+			print $out "\t\t\t\t\tbreak;\n\t\t\t\t}\n";
 		} else {
 			print $out "\t\t\t\topt_has_$name = 1;\n" if ($type->{'generate_has'});
 			&$assign_func($out, "\t\t\t\t", "opt_" . $o->{'name'});
@@ -225,13 +259,14 @@ sub print_impl {
 	print $out "\t\t\twarn_unknown_short(argv[i][j]);\n";
 	print $out "\t\t} /* for (j) */\n";
 	print $out "\t} /* for (i) */\n";
-	print $out "} /* end of: opt_parse */\n";
+	print $out "\tfirst_arg = argc;\n";
+	print $out "} /* end of: opt_parse */\n\n";
 	close $out;
 }
 
 ### MAIN ###
-do "config.pl";
-unify_options;
+do $ARGV[0];
+verify_options;
 print_header($opts{h}) if ($opts{h});
 print_impl($opts{c}) if ($opts{c});
 
