@@ -71,7 +71,8 @@ The config hash might specify:
 				 '"localheader.h"'.
 	"unknown"    values are "ignore" (default) or "die". If set to "die", the
 	             opt_parse function exits when an unknown option is found.
-	"prefix"     UNIMPLEMENTED -> namespaces
+	"prefix"     The prefix is prepended to every global getopt.pl function.
+	             The default value is "opt".
 
 === 3. c interface ===
 The generated header declares:
@@ -112,6 +113,11 @@ command line. If the option is not found, the result is the `init' value of
 that option. If no `init' value is specified, the result is undefined.
 
 The character '-' in long names is replaced by '_' in C names.
+
+If $config{'prefix'} is set, this value is used instead of the default "opt"
+prefix. In that case the function names do not start with "opt" but with the
+value of $config{'prefix'}. This can be used to implement more than one
+option parser.
 
 === 4. command line interface ===
 
