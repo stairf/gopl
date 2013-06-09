@@ -46,33 +46,43 @@ Those options might have the keys and values:
 	              will be called after the variable assignment. The result of
 				  the macro or the function must be an int. If the result is 0,
 				  the value is considered to be invalid. The parameter of the
-				  function is the (converted) option value. If an option takes
-				  no value, the `verify' property is ignored.
+				  function is the (converted) option value. Some option types
+				  do not support verify functions.
+	"callback"    name of the callback funcion for the type "callback". The
+	              option type must be "callback".
 
 available Types:
-Type       Value  C type       Has Get Description
-"help"     N?     -            N   N   display an auto-generated help text
-"int"      Y      int          Y   Y   int argument
-"lint"     Y      long int     Y   Y   long int argument
-"char"     Y      char         Y   Y   char argument
-"string"   Y      const char*  Y   Y   string argument
-"flag"     N      int          N   Y   values are true,false
-"counter"  N      int          N   Y   like flag, but count option arguments
+Type       Value  C type       Has Get Verify Description
+"help"     N?     -            N   N   N      display an auto-generated help text
+"int"      Y      int          Y   Y   Y      int argument
+"lint"     Y      long int     Y   Y   Y      long int argument
+"char"     Y      char         Y   Y   Y      char argument
+"string"   Y      const char*  Y   Y   Y      string argument
+"flag"     N      int          N   Y   N      values are true,false
+"counter"  N      int          N   Y   N      like flag, but count option arguments
+"callback" Y      -            N   N   N      value handled by an external function
 
 The type "help" might have an optional value in future versions (help topics).
 
 The config hash might specify:
-	"progname"   specify the programm name. If not specified, argv[0] is used.
-	             The value is a C statement.
-	"indexcheck" add index checks to function calls. Values are "yes" or "no".
-	             The default value is "no".
-	"include"    The value is an array reference, each entry will be included.
-	             The values should look lihe '<systemhdr.h>' or
-				 '"localheader.h"'.
-	"unknown"    values are "ignore" (default) or "die". If set to "die", the
-	             opt_parse function exits when an unknown option is found.
-	"prefix"     The prefix is prepended to every global getopt.pl function.
-	             The default value is "opt".
+	"progname"      specify the programm name. If not specified, argv[0] is used.
+	                The value is a C statement, C strings must be quoted.
+	"indexcheck"    add index checks to function calls. Values are "yes" or "no".
+	                The default value is "no".
+	"include"       The value is an array reference, each entry will be included.
+	                The values should look lihe '<systemhdr.h>' or
+	                '"localheader.h"'.
+	"unknown"       values are "ignore" (default) or "die". If set to "die", the
+	                opt_parse function exits when an unknown option is found.
+	"prefix"        The prefix is prepended to every global getopt.pl function.
+	                The default value is "opt".
+	"iguard"        Include guard for the header file. Default value is "". If
+	                the value is empty, no include guard is printed.
+	"one_word_long" Values are "yes" and "no". Default is "yes". If set to
+	                "yes", long options can be specified in one word like this:
+	                "--option=value". If set to "no", long options and their
+	                values must be two words: "--option" "value".
+
 
 === 3. c interface ===
 The generated header declares:
@@ -84,8 +94,8 @@ For each option that has a "Has" function:
 	int opt_has_X(void)  if the short name of the option is "X"
 	int opt_has_XY(void) it the long name of the option is "XY"
 If both long and short name are specified, both funtions are generated and
-equal. It is possible that one of these functions is a preprocessor macro that
-redirects to the other function.
+equal. In future versions, one of those functions might be a macro that
+expands to the other function.
 
 For each option that has a "Get" function:
 	<type> opt_get_X(void)  if the short name of the option is "X"
@@ -151,15 +161,15 @@ found, it is taken as the first argument. If the word "--" is found, that word
 is ignored and all later words are considered to be arguments.
 
 === 5. tips and tricks ===
-
-The options array should contain the entry
+ - The options array should contain the entry
 	{ short => "h", long => "help", type => "help", exit => "SUCCESS" }
+ - If you need complex option types, use the type "callback" and implement
+   the callback function.
 
 === 6. TODO ===
 need moar features:
  - moar data types
  - help topics
  - version option
- - callback type
  - commands
 etc
