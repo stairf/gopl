@@ -15,9 +15,27 @@ use getopt.pl to generate a .c and a .h file that implement your getopt
 function. The getopt.pl reads a perl config file which specifies the
 command-line options.
 
+The config file should contain:
+  - an array @options
+  - a hash %config
+  - a hash %help
+  - a hash %version
+The @options array contains hash references which each declares an option. The
+%config hash specifies implementation details. The %help and %version hashes
+specify the behaviour of the help and version options.
+
+A short syntax for options is:
+@options = (
+	{ short => "v", long => "verbose", type => "counter", ... },
+	...
+);
+
 === 2. config specification ===
-The config file must be a valid perl file. It may define an array @options and
-a hash %config.
+The config file must be a valid perl file. It may define
+	- an array @options
+	- a hash %config
+	- a hash %help
+	- a hash %version
 
 The @option arrays contains hash references. Each of that hash declares an
 command-line option.
@@ -27,27 +45,28 @@ Those options might have the keys and values:
 	              will match the command line argument "-$X".
 	"long"        the value contains more that one letter. If the value is $X,
 	              the option will match the command line argument "--$X". At
-				  least one of "short" and "long" must be specified for each
-				  option.
+	              least one of "short" and "long" must be specified for each
+	              option.
 	"type"        the value is a valid type name. See at type names below for
 	              more information. The "type" value is required.
 	"arg"         Specify a name for the argument displayed at the help text.
-	              The default value is "ARG". The value is ignored it the
-				  option (its type) doesn't take an argument.
+	              The default value is "ARG". The value is ignored if the
+	              option (its type) doesn't take an argument.
 	"description" Specify a description text for the help text. This is optional.
 	"exit"        Exit if this option was specified. This is useful for the help
 	              option. Values are "SUCCESS", "FAILURE" for the exit codes
-				  EXIT_SUCCESSS and EXIT_FAILURE. If any other value is set,
-				  that value will be used as exit code: The value `foo' will
-				  create thd C code `exit(foo)'.
+	              EXIT_SUCCESSS and EXIT_FAILURE. If any other value is set,
+	              that value will be used as exit code: The value `foo' will
+	               create thd C code `exit(foo)'.
 	"init"        initial value for the option. The value is a C expression. The
-	              value is statically assigned to the option variable.
+	              value is statically assigned to the option variable. The value
+	              must be quoted for both perl and C, e.g. '"string"';
 	"verify"      the value is the name of a function or a macro. The function
 	              will be called after the variable assignment. The result of
-				  the macro or the function must be an int. If the result is 0,
-				  the value is considered to be invalid. The parameter of the
-				  function is the (converted) option value. Some option types
-				  do not support verify functions.
+	              the macro or the function must be an int. If the result is 0,
+	              the value is considered to be invalid. The parameter of the
+	              function is the (converted) option value. Some option types
+	              do not support verify functions.
 	"callback"    name of the callback funcion for the type "callback". The
 	              option type must be "callback".
 
@@ -78,11 +97,29 @@ The config hash might specify:
 	                The default value is "opt".
 	"iguard"        Include guard for the header file. Default value is "". If
 	                the value is empty, no include guard is printed.
-	"one_word_long" Values are "yes" and "no". Default is "yes". If set to
-	                "yes", long options can be specified in one word like this:
-	                "--option=value". If set to "no", long options and their
-	                values must be two words: "--option" "value".
 
+The hash %help may contain the keys:
+	- output        "stderr" or "stdout"
+	- description   a text that describes the programm, optional. This text is
+	                displayed after the usage.
+	- show_options  "yes" or "no". Default is "yes". Select if options are
+	                shown in the help text.
+	- info          An optional info text. This text is displayed after the
+	                options.
+	- indent        An indent text. The default are two spaces ("  "). The text
+	                should not contain any other characters than spaces.
+	- indent2       The second indent text. The text should be longer than the
+	                first indent text. The default values are four spaces
+	                ("    "). This text should not contain any other characters
+	                than spaces. You can use perl string repetition to simplify
+	                the indent strings (e.g. " " x4).
+
+The hash %version my contain the keys:
+	- output        "stderr" or "stdout"
+	- version       The version string
+	- copyright     Copyright information, default is empty
+	- info          Additional information
+	- indent        indent for the info text, like $help{indent}.
 
 === 3. c interface ===
 The generated header declares:
@@ -162,13 +199,13 @@ is ignored and all later words are considered to be arguments.
 
 === 5. tips and tricks ===
  - The options array should contain the entry
-	{ short => "h", long => "help", type => "help", exit => "SUCCESS" }
+   { short => "h", long => "help", type => "help", exit => "SUCCESS" }
  - If you need complex option types, use the type "callback" and implement
-   the callback function.
+   the callback function, or use type "string" and parse the option string.
 
 === 6. TODO ===
 need moar features:
- - moar data types
+ - more data types
  - help topics
  - version option
  - commands

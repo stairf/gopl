@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-#	COPYRIGHT (C) 2013 Stefan Reif
+#   getopt.pl - command line options parser generator
+#	COPYRIGHT (C) 2013 Stefan Reif -- reif_stefan@web.de
 #
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
@@ -17,9 +18,13 @@
 
 our @options;
 our %config;
+our %help;
+our %version;
 my $iguard = "";
 my $prefix = "opt";
 my $any_help_option;
+my $any_version_option;
+my $any_long_option;
 
 sub usage {
 	print "usage: getopt.pl [OPTIONS] config\n";
@@ -122,6 +127,11 @@ sub help_print_assign {
 	print $out $indent . "do_help();\n";
 } # sub help_print_assign
 
+sub version_print_assign {
+	my ($out, $indent, $option, $varname, $ref) = @_;
+	print $out $indent . "do_version();\n";
+}
+
 # print assignment for type "callback"
 sub callback_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -203,6 +213,13 @@ my $types = {
 		"print_assign" => sub { help_print_assign(@_) },
 		"may_verify" => 0,
 	},
+	"version" => {
+		"needs_val" => 0,
+		"generate_has" => 0,
+		"generate_get" => 0,
+		"print_assign" => sub { version_print_assign(@_) },
+		"may_verify" => 0,
+	},
 	"callback" => {
 		"needs_val" => "required",
 		"generate_has" => 0,
@@ -229,9 +246,13 @@ sub verify_options {
 		die "the type $option->{type} must not have a verify function\n" unless (!$option->{'verify'} or $types->{$option->{type}}->{'may_verify'});
 		die "the type $option->{type} must not have a callback function\n" unless (!$option->{'callback'} or $option->{'type'} eq "callback");
 		die "the type $option->{type} must have a callback function\n" if (!$option->{'callback'} and $option->{'type'} eq "callback");
-		$option->{'name'} = $option->{'short'} . "_" . $option->{'long'};
+		$option->{'name'} = $option->{'short'};
+		$option->{'name'} //= $option->{'long'};
 		$option->{'name'} =~ s/-/_/g;
+		$option->{'name'} .= "_option";
 		$any_help_option = 1 if ($option->{'type'} eq "help");
+		$any_version_option = 1 if ($option->{'type'} eq "version");
+		$any_long_option = 1 if (defined $option->{'long'});
 	}
 	$prefix = $config{'prefix'} if defined $config{'prefix'};
 	$iguard = $config{'iguard'} if defined $config{'iguard'};
@@ -259,6 +280,62 @@ sub print_header {
 	close $out;
 } # sub print_header
 
+# print the do_help function
+sub print_do_help_function {
+	my ($out) = @_;
+	my $stream = $help{'output'} // "stdout";
+	my $indent = $help{'indent'} // " " x2;
+	my $indent2 = $help{'indent2'} // " " x4;
+	print $out "PRIVATE void do_help(void) {\n";
+	print $out qq @\tfprintf($stream, "usage: %s [options] arguments...\\n\\n", @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
+	if ($help{'description'}) {
+		print $out qq @\tfputs("DESCRIPTION:\\n", $stream);\n@;
+		for my $token (split "\n", $help{'description'}) {
+			print $out qq @\tfputs("${indent}$token\\n", $stream);\n@;
+		}
+		print $out qq @\tfputs("\\n", $stream);\n@;
+	}
+	if ($help{'show_options'} ne "no") {
+		print $out qq @\tfputs("OPTIONS:\\n", $stream);\n@;
+		for my $o (@options) {
+			my $type = $types->{$o->{'type'}};
+			print $out qq @\tfputs("$indent@;
+			print $out qq @-$o->{short}@ if $o->{'short'};
+			print $out qq @ @ if ($o->{'short'} and $o->{'long'});
+			print $out qq @--$o->{long}@ if $o->{'long'};
+			print $out qq @ @ . ($o->{'arg'} // "ARG") if ($type->{'needs_val'} eq "required");
+			print $out qq @ (@ . ($o->{'arg'} // "ARG") . ")" if ($type->{'needs_val'} eq "optional");
+			print $out qq @\\n${indent2}$o->{description}@ if $o->{'description'};
+			print $out qq @\\n", $stream);\n@;
+		}
+		print $out qq @\tfputs("\\n", $stream);\n@;
+	}
+	if ($help{'info'}) {
+		print $out qq @\tfputs("INFO:\\n", $stream);\n@;
+		for my $token (split "\n", $help{'info'}) {
+			print $out qq @\tfputs("${indent}$token\\n", $stream);\n@;
+		}
+		print $out qq @\tfputs("\\n", $stream);\n@;
+	}
+	print $out qq @}\n\n@;
+} # sub print_do_help_function
+
+sub print_do_version_function {
+	my ($out) = @_;
+	my $progname = $config{'progname'} // "save_argv[0]";
+	my $stream = $version{'output'} // "stdout";
+	my $indent = $version{'indent'} // " " x2;
+	print $out "PRIVATE void do_version(void) {\n";
+	print $out qq @\tfprintf($stream, "%s $version{version}\\n", $progname);\n@ if ($version{'version'});
+	print $out qq @\tfputs("$version{copyright}\\n", $stream);\n@ if ($version{'copyright'});
+	print $out qq @\tfputs("\\n", $stream);\n@ if $version{'info'};
+	for my $token (split "\n", $version{'info'}) {
+		print $out qq @\tfputs("${indent}$token\\n", $stream);\n@ if ($version{'info'});
+	}
+	print $out qq @\tfputs("\\n", $stream);\n@;
+	print $out "}\n\n";
+} # sub print_do_version_function
+
 sub print_impl {
 	my ($outfile) = @_;
 	open my $out,">$outfile" or die "$outfile: $!\n";
@@ -268,29 +345,16 @@ sub print_impl {
 	print $out "#include <string.h>\n";
 	print $out "#include <errno.h>\n";
 	print $out "#include $_\n" for (@{$config{'include'}});
-	# __attrubute__((always_inline)) to avoid `unused ...' compiler warnings
-	print $out "\n#define PRIVATE static inline __attribute__((always_inline))\n";
+	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
+	print $out "\n#define PRIVATE static inline __attribute__((unused))\n";
 	print $out "\n";
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
 	print $out "static int first_arg;\n\n";
-	if ($any_help_option) {
-		print $out "PRIVATE void do_help(void) {\n";
-		print $out qq @\tprintf("usage: %s [options] arguments...\\n\\n", @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
-		# TODO : topics
-		print $out qq @\tputs("OPTIONS:");\n@;
-		for my $o (@options) {
-			my $type = $types->{$o->{'type'}};
-			print $out qq @\tputs("\\t@;
-			print $out qq @-$o->{short}@ if $o->{'short'};
-			print $out qq @ @ if ($o->{'short'} and $o->{'long'});
-			print $out qq @--$o->{long}@ if $o->{'long'};
-			print $out qq @ @ . ($o->{'arg'} // "ARG") if ($type->{'needs_val'} eq "required");
-			print $out qq @ (@ . ($o->{'arg'} // "ARG") . ")" if ($type->{'needs_val'} eq "optional");
-			print $out qq @\\n\\t\\t$o->{description}@ if $o->{'description'};
-			print $out qq @");\n@;
-		}
-		print $out qq @}\n@;
-	}
+
+	# print the do_help,do_version function
+	print_do_help_function($out) if ($any_help_option);
+	print_do_version_function($out) if ($any_version_option);
+
 	for my $option (@options) {
 		my $typename = $option->{'type'};
 		my $type = $types->{$typename};
@@ -311,11 +375,11 @@ sub print_impl {
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void warn_unknown_long(const char *option) {\n\tfprintf(stderr, "unknown option \`%s'\\n", option);\n@;
-	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} eq "die");
+	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} ne "ignore");
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void warn_unknown_short(const char option) {\n\tfprintf(stderr, "unknown option \`-%c'\\n", option);\n@;
-	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} eq "die");
+	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} ne "ignore");
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void die_noValue_long(const char *option) {\n\tfprintf(stderr, "the option `%s' needs a value.\\n", option);\n@;
@@ -343,7 +407,7 @@ sub print_impl {
 	# print opt_parse / ${prefix}_parse
 	print $out "void ${prefix}_parse(int argc, const char **argv) {\n";
 	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
-	print $out "\tconst char *a;\n" unless ($config{'one_word_long'} eq "no");
+	print $out "\tconst char *a;\n" if ($any_long_option);
 	print $out "\tfor (int i = 1; i < argc; ++i) {\n";
 
 	# argv[i] is argument? ->break
@@ -362,16 +426,15 @@ sub print_impl {
 		my $assign_func = $type->{'print_assign'};
 		my $name = $o->{'name'};
 		if ($type->{'needs_val'}) {
-			unless ($config{'one_word_long'} eq "no") {
-				# --option=value
-				print $out "\t\ta = strstart(argv[i], \"--$o->{'long'}=\");\n";
-				print $out "\t\tif (a) {\n";
-				print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
-				&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "a");
-				print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "a", $o->{'verify'}) if $o->{'verify'};
-				print_exit_call($out, "\t\t\t", $o->{'exit'}) if $o->{'exit'};
-				print $out "\t\t\tcontinue;\n\t\t}\n";
-			}
+			# --option=value
+			print $out "\t\ta = strstart(argv[i], \"--$o->{'long'}=\");\n";
+			print $out "\t\tif (a) {\n";
+			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
+			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "a");
+			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "a", $o->{'verify'}) if $o->{'verify'};
+			print_exit_call($out, "\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print $out "\t\t\tcontinue;\n\t\t}\n";
+
 			# --option value
 			print $out "\t\tif (streq(argv[i], \"--$o->{'long'}\")) {\n";
 			print $out "\t\t\ti++;\n";
