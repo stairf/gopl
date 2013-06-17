@@ -202,6 +202,8 @@ is ignored and all later words are considered to be arguments.
    { short => "h", long => "help", type => "help", exit => "SUCCESS" }
  - If you need complex option types, use the type "callback" and implement
    the callback function, or use type "string" and parse the option string.
+ - If you want to read text from a file, use perl backticks and cat:
+   { info => "" . `cat version_info.txt` }
 
 === 6. TODO ===
 need moar features:
