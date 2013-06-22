@@ -20,6 +20,7 @@ The config file should contain:
   - a hash %config
   - a hash %help
   - a hash %version
+  - a hash %lang
 The @options array contains hash references which each declares an option. The
 %config hash specifies implementation details. The %help and %version hashes
 specify the behaviour of the help and version options.
@@ -36,6 +37,7 @@ The config file must be a valid perl file. It may define
 	- a hash %config
 	- a hash %help
 	- a hash %version
+	- a hash %lang
 
 The @option arrays contains hash references. Each of that hash declares an
 command-line option.
@@ -129,6 +131,28 @@ The following entries are quoted automatically:
 	- version -> copyright
 	- version -> info
 all other values must be quoted for both perl and C code.
+
+The hash %lang contains all strings that are displayed, e.g. error messages. The
+entries are quoted as C strings automatically. Some of them are used in printf
+format strings, so they should contains format specifiers.
+
+The hash %lang may define
+	- help_usage   the first line of the help text.
+	- help_desc    the line above the description section of the help text
+	- help_options the line above the options section of the help text
+	- help_info    the line above the info section of the help text
+	- opt_unknown  the error message for an unknown option
+	- opt_no_val   the error message when an option has no value
+	- opt_bad_val  the error message for invalid option values
+
+The values of the %lang hash should contain format specifiers:
+	- help_usage   %s (program name)
+	- help_desc    (no format specifier)
+	- help_options (no format specifier)
+	- help_info    (no format specifier)
+	- opt_unknown  %s (name of the unknown option)
+	- opt_no_val   %s (name of the option that needs a value)
+	- opt_bad_val  %s (option name), %s (invalid value)
 
 === 3. c interface ===
 The generated header declares:

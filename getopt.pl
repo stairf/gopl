@@ -20,11 +20,23 @@ our @options;
 our %config;
 our %help;
 our %version;
+#default language
+our %lang = (
+	help_usage => "usage: %s [options] arguments",
+	help_desc => "DESCRIPTION:",
+	help_options => "OPTIONS:",
+	help_info => "INFO:",
+	opt_unknown => "unknown option `%s'",
+	opt_no_val => "the option `%s' needs a value",
+	opt_bad_val => "invalid value %s `%s'",
+);
+
 my $iguard = "";
 my $prefix = "opt";
 my $any_help_option;
 my $any_version_option;
 my $any_long_option;
+
 
 sub usage {
 	print "usage: getopt.pl [OPTIONS] config\n";
@@ -296,16 +308,16 @@ sub print_do_help_function {
 	my $indent = $help{'indent'} // " " x2;
 	my $indent2 = $help{'indent2'} // " " x4;
 	print $out "PRIVATE void do_help(void) {\n";
-	print $out qq @\tfprintf($stream, "usage: %s [options] arguments...\\n\\n", @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
+	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @ "\\n\\n", @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
 	if ($help{'description'}) {
-		print $out qq @\tfputs("DESCRIPTION:\\n", $stream);\n@;
+		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
 		for my $token (split "\n", $help{'description'}) {
 			print $out qq @\tfputs("$indent"  @ .  cstring($token) . qq @  "\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
 	}
 	if ($help{'show_options'} ne "no") {
-		print $out qq @\tfputs("OPTIONS:\\n", $stream);\n@;
+		print $out qq @\tfputs(@ . cstring($lang{help_options}) . qq @ "\\n", $stream);\n@;
 		for my $o (@options) {
 			my $type = $types->{$o->{'type'}};
 			print $out qq @\tfputs("$indent@;
@@ -320,7 +332,7 @@ sub print_do_help_function {
 		print $out qq @\tfputs("\\n", $stream);\n@;
 	}
 	if ($help{'info'}) {
-		print $out qq @\tfputs("INFO:\\n", $stream);\n@;
+		print $out qq @\tfputs(@ . cstring($lang{help_info}) . qq @ "\\n", $stream);\n@;
 		for my $token (split "\n", $help{'info'}) {
 			print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@;
 		}
@@ -384,19 +396,25 @@ sub print_impl {
 	print $out "\n\treturn save_argv[first_arg + index];\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void warn_unknown_long(const char *option) {\n\tfprintf(stderr, "unknown option \`%s'\\n", option);\n@;
+	print $out qq @PRIVATE void warn_unknown_long(const char *option) {\n@;
+	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}).qq @ "\\n", option);\n@;
 	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} ne "ignore");
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void warn_unknown_short(const char option) {\n\tfprintf(stderr, "unknown option \`-%c'\\n", option);\n@;
+	print $out qq @PRIVATE void warn_unknown_short(const char option) {\n@;
+	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
+	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}) . qq @ "\\n", opt);\n@;
 	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} ne "ignore");
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_noValue_long(const char *option) {\n\tfprintf(stderr, "the option `%s' needs a value.\\n", option);\n@;
+	print $out qq @PRIVATE void die_noValue_long(const char *option) {\n@;
+	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
 	print $out "\texit(EXIT_FAILURE);\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_noValue_short(const char option) {\n\tfprintf(stderr, "the option `-%c' needs a value.\\n", option);\n@;
+	print $out qq @PRIVATE void die_noValue_short(const char option) {\n@;
+	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
+	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", opt);\n@;
 	print $out "\texit(EXIT_FAILURE);\n";
 	print $out "}\n\n";
 
@@ -409,8 +427,8 @@ sub print_impl {
 	print $out "\treturn NULL;\n";
 	print $out "}\n\n";
 
-	print $out "PRIVATE void die_invalid_value(const char *option, const char *value) {\n";
-	print $out "\tfprintf(stderr, \"invalid value %s \`%s'\\n\", option, value);\n";
+	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value) {\n@;
+	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_bad_val}) . qq @ "\\n", option, value);\n@;
 	print $out "\texit(EXIT_FAILURE);\n";
 	print $out "}\n\n";
 
