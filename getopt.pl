@@ -38,6 +38,15 @@ use Getopt::Std;
 getopts("h:c:",\%opts);
 usage, exit 1 unless ($ARGV[0]);
 
+sub cstring {
+	my ($in) = @_;
+	$in =~ s/\\/\\\\/g;
+	$in =~ s/"/\\"/g;
+	$in =~ s/\n/\\n/g;
+	$in =~ s/\t/\\t/g;
+	return '"' . $in . '"';
+} # sub cstring
+
 # declare a C variable
 sub declare_var {
 	my ($out, $ctype, $varname, $val, $modifiers, $hasvar) = @_;
@@ -291,7 +300,7 @@ sub print_do_help_function {
 	if ($help{'description'}) {
 		print $out qq @\tfputs("DESCRIPTION:\\n", $stream);\n@;
 		for my $token (split "\n", $help{'description'}) {
-			print $out qq @\tfputs("${indent}$token\\n", $stream);\n@;
+			print $out qq @\tfputs("$indent"  @ .  cstring($token) . qq @  "\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
 	}
@@ -303,9 +312,9 @@ sub print_do_help_function {
 			print $out qq @-$o->{short}@ if $o->{'short'};
 			print $out qq @ @ if ($o->{'short'} and $o->{'long'});
 			print $out qq @--$o->{long}@ if $o->{'long'};
-			print $out qq @ @ . ($o->{'arg'} // "ARG") if ($type->{'needs_val'} eq "required");
-			print $out qq @ (@ . ($o->{'arg'} // "ARG") . ")" if ($type->{'needs_val'} eq "optional");
-			print $out qq @\\n${indent2}$o->{description}@ if $o->{'description'};
+			print $out qq @ " @ . (cstring($o->{'arg'} // "ARG")) . qq @ "@ if ($type->{'needs_val'} eq "required");
+			print $out qq @ " "("@ . (cstring($o->{'arg'} // "ARG")) . qq @ ")" "@ if ($type->{'needs_val'} eq "optional");
+			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{'description'};
 			print $out qq @\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
@@ -313,7 +322,7 @@ sub print_do_help_function {
 	if ($help{'info'}) {
 		print $out qq @\tfputs("INFO:\\n", $stream);\n@;
 		for my $token (split "\n", $help{'info'}) {
-			print $out qq @\tfputs("${indent}$token\\n", $stream);\n@;
+			print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
 	}
@@ -326,11 +335,11 @@ sub print_do_version_function {
 	my $stream = $version{'output'} // "stdout";
 	my $indent = $version{'indent'} // " " x2;
 	print $out "PRIVATE void do_version(void) {\n";
-	print $out qq @\tfprintf($stream, "%s $version{version}\\n", $progname);\n@ if ($version{'version'});
-	print $out qq @\tfputs("$version{copyright}\\n", $stream);\n@ if ($version{'copyright'});
+	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{'version'});
+	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{'copyright'});
 	print $out qq @\tfputs("\\n", $stream);\n@ if $version{'info'};
 	for my $token (split "\n", $version{'info'}) {
-		print $out qq @\tfputs("${indent}$token\\n", $stream);\n@ if ($version{'info'});
+		print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@ if ($version{'info'});
 	}
 	print $out qq @\tfputs("\\n", $stream);\n@;
 	print $out "}\n\n";
@@ -347,6 +356,7 @@ sub print_impl {
 	print $out "#include $_\n" for (@{$config{'include'}});
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
 	print $out "\n#define PRIVATE static inline __attribute__((unused))\n";
+	print $out "#define STR(x) #x\n";
 	print $out "\n";
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
 	print $out "static int first_arg;\n\n";

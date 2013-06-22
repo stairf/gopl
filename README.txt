@@ -121,6 +121,15 @@ The hash %version my contain the keys:
 	- info          Additional information
 	- indent        indent for the info text, like $help{indent}.
 
+The following entries are quoted automatically:
+	- help -> description
+	- help -> info
+	- options (each) -> arg
+	- options (each) -> description
+	- version -> copyright
+	- version -> info
+all other values must be quoted for both perl and C code.
+
 === 3. c interface ===
 The generated header declares:
 	void opt_parse(int,char**)
