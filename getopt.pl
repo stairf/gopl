@@ -56,6 +56,9 @@ sub cstring {
 	$in =~ s/"/\\"/g;
 	$in =~ s/\n/\\n/g;
 	$in =~ s/\t/\\t/g;
+	$in =~ s/\r/\\r/g;
+	$in =~ s/\v/\\v/g;
+	$in =~ s/\f/\\f/g;
 	return '"' . $in . '"';
 } # sub cstring
 
