@@ -282,6 +282,11 @@ sub verify_options {
 	}
 	$prefix = $config{'prefix'} if defined $config{'prefix'};
 	$iguard = $config{'iguard'} if defined $config{'iguard'};
+
+	for my $arg (@args) {
+		my $c = $arg->{'count'};
+		die "argument $arg->{name} has invalid count specification: $c\n" unless ($c eq "1" or $c eq "?" or $c eq "*" or $c eq "+");
+	}
 } # sub verify_options
 
 # generate the header file
