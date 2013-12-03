@@ -20,9 +20,10 @@ our @options;
 our %config;
 our %help;
 our %version;
+our @args = ( { name => "arguments", count => "*" } );
 #default language
 our %lang = (
-	help_usage => "usage: %s [options] arguments",
+	help_usage => "usage: %s [options] ",
 	help_desc => "DESCRIPTION:",
 	help_options => "OPTIONS:",
 	help_info => "INFO:",
@@ -148,7 +149,7 @@ sub flag_print_assign {
 sub help_print_assign {
 	# this is the "assignment" for a help option
 	my ($out, $indent, $option, $varname, $ref) = @_;
-	print $out $indent . "do_help();\n";
+	print $out $indent . "do_help(0);\n";
 } # sub help_print_assign
 
 sub version_print_assign {
@@ -304,14 +305,48 @@ sub print_header {
 	close $out;
 } # sub print_header
 
+sub get_args_min_count {
+	my %min = ( '*' => 0, '+' => '1', '?' => '0', '1' => '1' );
+	my $sum = 0;
+	for my $arg (@args) {
+		$sum += $min{$arg->{'count'}};
+	}
+	return $sum;
+}
+
+sub get_args_max_count {
+	my %max = ( '?' => 1, '1' => 1 );
+	my $sum = 0;
+	for my $arg (@args) {
+		my $tmp = $max{$arg->{'count'}};
+		return undef unless (defined $tmp);
+		$sum += $tmp;
+	}
+	return $sum;
+}
+
+sub get_argument_decoration {
+	my ($cnt) = @_;
+	return ("[","...]") if ($cnt eq "*");
+	return ("","...") if ($cnt eq "+");
+	return ("[","]") if ($cnt eq "?");
+	return ("","");
+}
+
 # print the do_help function
 sub print_do_help_function {
 	my ($out) = @_;
 	my $stream = $help{'output'} // "stdout";
 	my $indent = $help{'indent'} // " " x2;
 	my $indent2 = $help{'indent2'} // " " x4;
-	print $out "PRIVATE void do_help(void) {\n";
-	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @ "\\n\\n", @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
+	print $out "PRIVATE void do_help(int die_usage) {\n";
+	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
+	for my $arg (@args) {
+		my ($pre,$suf) = get_argument_decoration($arg->{'count'});
+		print $out qq @\tfprintf($stream, "%s", "$pre" @ . cstring($arg->{'name'}) . qq @ "$suf " );\n@;
+	}
+	print $out qq @\tfprintf($stream,"\\n\\n");\n@;
+	print $out qq @\tif (die_usage) exit(EXIT_FAILURE);\n@;
 	if ($help{'description'}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
 		for my $token (split "\n", $help{'description'}) {
@@ -377,7 +412,7 @@ sub print_impl {
 	print $out "static int first_arg;\n\n";
 
 	# print the do_help,do_version function
-	print_do_help_function($out) if ($any_help_option);
+	print_do_help_function($out) if ($any_help_option || get_args_min_count() != 0 || defined get_args_max_count);
 	print_do_version_function($out) if ($any_version_option);
 
 	for my $option (@options) {
@@ -444,11 +479,11 @@ sub print_impl {
 	# argv[i] is argument? ->break
 	print $out "\t\tif (argv[i][0] != '-' || streq(argv[i], \"-\")) {\n";
 	print $out "\t\t\tfirst_arg = i;\n";
-	print $out "\t\t\treturn;\n";
+	print $out "\t\t\tgoto check_args;\n";
 	print $out "\t\t}\n";
 	print $out "\t\tif (streq(argv[i], \"--\")) {\n";
 	print $out "\t\t\tfirst_arg = i + 1;\n";
-	print $out "\t\t\treturn;\n";
+	print $out "\t\t\tgoto check_args;\n";
 	print $out "\t\t}\n";
 
 	#search long options
@@ -525,6 +560,14 @@ sub print_impl {
 	print $out "\t\t} /* for (j) */\n";
 	print $out "\t} /* for (i) */\n";
 	print $out "\tfirst_arg = argc;\n";
+
+	print $out "check_args:\n";
+	my $minargs = get_args_min_count();
+	my $maxargs = get_args_max_count();
+	print $out "\tif (${prefix}_arg_count() < $minargs) do_help(1);\n" if ($minargs != 0);
+	print $out "\tif (${prefix}_arg_count() > $maxargs) do_help(1);\n" if (defined $maxargs);
+	print $out "\treturn;\n";
+
 	print $out "} /* end of: ${prefix}_parse */\n\n";
 	close $out;
 } # sub print_impl
