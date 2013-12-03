@@ -152,10 +152,11 @@ sub help_print_assign {
 	print $out $indent . "do_help(0);\n";
 } # sub help_print_assign
 
+# print assignment for type "version" --> call version function
 sub version_print_assign {
 	my ($out, $indent, $option, $varname, $ref) = @_;
 	print $out $indent . "do_version();\n";
-}
+} # sub version_print_assign
 
 # print assignment for type "callback"
 sub callback_print_assign {
@@ -252,7 +253,7 @@ my $types = {
 		"print_assign" => sub { callback_print_assign(@_) },
 		"may_verify" => 0,
 	}
-};
+}; # my $types
 
 # verify the options and the config
 sub verify_options {
@@ -283,6 +284,7 @@ sub verify_options {
 	$iguard = $config{'iguard'} if defined $config{'iguard'};
 } # sub verify_options
 
+# generate the header file
 sub print_header {
 	my ($outfile) = @_;
 	open my $out,">$outfile" or die "$outfile: $!\n";
@@ -305,6 +307,7 @@ sub print_header {
 	close $out;
 } # sub print_header
 
+# get the minimum allowed number of arguments
 sub get_args_min_count {
 	my %min = ( '*' => 0, '+' => '1', '?' => '0', '1' => '1' );
 	my $sum = 0;
@@ -312,8 +315,9 @@ sub get_args_min_count {
 		$sum += $min{$arg->{'count'}};
 	}
 	return $sum;
-}
+} # sub get_args_min_count
 
+# get the maximum allowed number of arguments
 sub get_args_max_count {
 	my %max = ( '?' => 1, '1' => 1 );
 	my $sum = 0;
@@ -323,15 +327,16 @@ sub get_args_max_count {
 		$sum += $tmp;
 	}
 	return $sum;
-}
+} # sub get_args_max_count
 
+# get the decoration for arguments in the usage-text
 sub get_argument_decoration {
 	my ($cnt) = @_;
 	return ("[","...]") if ($cnt eq "*");
 	return ("","...") if ($cnt eq "+");
 	return ("[","]") if ($cnt eq "?");
 	return ("","");
-}
+} # sub get_argument_decoration
 
 # print the do_help function
 sub print_do_help_function {
@@ -379,6 +384,7 @@ sub print_do_help_function {
 	print $out qq @}\n\n@;
 } # sub print_do_help_function
 
+#print the do_version function
 sub print_do_version_function {
 	my ($out) = @_;
 	my $progname = $config{'progname'} // "save_argv[0]";
@@ -395,6 +401,7 @@ sub print_do_version_function {
 	print $out "}\n\n";
 } # sub print_do_version_function
 
+# generate the c implementation file
 sub print_impl {
 	my ($outfile) = @_;
 	open my $out,">$outfile" or die "$outfile: $!\n";
