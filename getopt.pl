@@ -348,9 +348,9 @@ sub print_do_help_function {
 	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
 	for my $arg (@args) {
 		my ($pre,$suf) = get_argument_decoration($arg->{'count'});
-		print $out qq @\tfprintf($stream, "%s", "$pre" @ . cstring($arg->{'name'}) . qq @ "$suf " );\n@;
+		print $out qq @\tfputs("$pre" @ . cstring($arg->{'name'}) . qq @ "$suf ", $stream);\n@;
 	}
-	print $out qq @\tfprintf($stream,"\\n\\n");\n@;
+	print $out qq @\tfputs("\\n\\n", $stream);\n@;
 	print $out qq @\tif (die_usage) exit(EXIT_FAILURE);\n@;
 	if ($help{'description'}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
