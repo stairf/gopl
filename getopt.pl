@@ -335,13 +335,13 @@ sub get_args_max_count {
 } # sub get_args_max_count
 
 # get the decoration for arguments in the usage-text
-sub get_argument_decoration {
-	my ($cnt) = @_;
-	return ("[","...]") if ($cnt eq "*");
-	return ("","...") if ($cnt eq "+");
-	return ("[","]") if ($cnt eq "?");
-	return ("","");
-} # sub get_argument_decoration
+sub decorate_argument {
+	my ($cnt,$name) = @_;
+	return "[$name...]" if ($cnt eq "*");
+	return "$name..." if ($cnt eq "+");
+	return "[$name]" if ($cnt eq "?");
+	return $name;
+} # sub decorate_argument
 
 # print the do_help function
 sub print_do_help_function {
@@ -351,12 +351,11 @@ sub print_do_help_function {
 	my $indent2 = $help{'indent2'} // " " x4;
 	print $out "PRIVATE void do_help(int die_usage) {\n";
 	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
-	for my $arg (@args) {
-		my ($pre,$suf) = get_argument_decoration($arg->{'count'});
-		print $out qq @\tfputs("$pre" @ . cstring($arg->{'name'}) . qq @ "$suf ", $stream);\n@;
-	}
+	my $argdesc = cstring(join " ", map { decorate_argument($_->{'count'}, $_->{'name'}) } values @args);
+	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
 	print $out qq @\tif (die_usage) exit(EXIT_FAILURE);\n@;
+
 	if ($help{'description'}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
 		for my $token (split "\n", $help{'description'}) {
