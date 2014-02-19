@@ -259,19 +259,20 @@ my $types = {
 sub verify_options {
 	my %short;
 	my %long;
+	my $cnt = 0;
 	foreach my $option (@options) {
 		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{'short'}});
 		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{'long'}});
 		$short{$option->{'short'}} = 1;
 		$long{$option->{'long'}} = 1;
-		die "option ". %{$option} ." has no name\n" unless (defined $option->{'short'} or defined $option->{'long'});
-		die "option ". %{$option} ." has no type\n" unless (defined $option->{'type'});
-		die "option ". %{$option} ." has an unknown type: $option->{type}\n" unless (defined $types->{$option->{'type'}});
-		die "invalid short name " . $option->{'short'} unless (($option->{'short'} // "a") =~ /^[a-zA-Z]$/);
-		die "invalid long name " . $option->{'long'} unless (($option->{'long'} // "ab") =~ /^[a-zA-Z][a-zA-Z0-9-]+$/);
-		die "the type $option->{type} must not have a verify function\n" unless (!$option->{'verify'} or $types->{$option->{type}}->{'may_verify'});
-		die "the type $option->{type} must not have a callback function\n" unless (!$option->{'callback'} or $option->{'type'} eq "callback");
-		die "the type $option->{type} must have a callback function\n" if (!$option->{'callback'} and $option->{'type'} eq "callback");
+		die "option #$cnt has no name\n" unless (defined $option->{'short'} or defined $option->{'long'});
+		die "option #$cnt has no type\n" unless (defined $option->{'type'});
+		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{'type'}});
+		die "option #$cnt: invalid short name " . $option->{'short'} unless (($option->{'short'} // "a") =~ /^[a-zA-Z]$/);
+		die "option #$cnt: invalid long name " . $option->{'long'} unless (($option->{'long'} // "ab") =~ /^[a-zA-Z][a-zA-Z0-9-]+$/);
+		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{'verify'} or $types->{$option->{type}}->{'may_verify'});
+		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{'callback'} or $option->{'type'} eq "callback");
+		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{'callback'} and $option->{'type'} eq "callback");
 		$option->{'name'} = $option->{'short'};
 		$option->{'name'} //= $option->{'long'};
 		$option->{'name'} =~ s/-/_/g;
@@ -279,13 +280,16 @@ sub verify_options {
 		$any_help_option = 1 if ($option->{'type'} eq "help");
 		$any_version_option = 1 if ($option->{'type'} eq "version");
 		$any_long_option = 1 if (defined $option->{'long'});
+		$cnt++;
 	}
 	$prefix = $config{'prefix'} if defined $config{'prefix'};
 	$iguard = $config{'iguard'} if defined $config{'iguard'};
 
 	for my $arg (@args) {
+		die "argument specification #$cnt has no name\n" unless $arg->{'name'};
 		my $c = $arg->{'count'};
-		die "argument $arg->{name} has invalid count specification: $c\n" unless ($c eq "1" or $c eq "?" or $c eq "*" or $c eq "+");
+		die "argument specification #$cnt has invalid count specification: $c\n" unless ($c eq "1" or $c eq "?" or $c eq "*" or $c eq "+");
+		$cnt++;
 	}
 } # sub verify_options
 
