@@ -347,6 +347,14 @@ sub decorate_argument {
 	return $name;
 } # sub decorate_argument
 
+# read a config file
+sub read_config_file {
+	my ($config) = @_;
+	my $return = do $config;
+	die "failed to parse $config: $@\n" if $@;
+	die "failed to read $config: $!\n" if $!;
+} # sub read_config_file
+
 # print the do_help function
 sub print_do_help_function {
 	my ($out) = @_;
@@ -588,7 +596,7 @@ sub print_impl {
 } # sub print_impl
 
 ### MAIN ###
-do $_ for @ARGV;
+read_config_file($_) for @ARGV;
 verify_options;
 print_header($opts{h}) if ($opts{h});
 print_impl($opts{c}) if ($opts{c});
