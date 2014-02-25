@@ -161,7 +161,7 @@ sub version_print_assign {
 # print assignment for type "callback"
 sub callback_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
-	my $callback = $ref->{'callback'};
+	my $callback = $ref->{callback};
 	print $out $indent . "if(!($callback ($src)))\n";
 	print $out $indent . "\tdie_invalid_value($option, $src);\n"
 } # sub callback_print_assign
@@ -184,74 +184,74 @@ sub print_verify {
 
 # define option types
 my $types = {
-	"string" => {
-		"ctype" => "const char*",
-		"needs_val" => "required",
-		"generate_has" => 1, #true
-		"generate_get" => 1, #true
-		"print_assign" => sub { string_print_assign(@_) },
-		"may_verify" => 1,
+	string => {
+		ctype => "const char*",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { string_print_assign(@_) },
+		may_verify => 1,
 	},
-	"int" => {
-		"ctype" => "int",
-		"needs_val" => "required",
-		"generate_has" => 1, #true
-		"generate_get" => 1, #true
-		"print_assign" => sub { int_print_assign(@_) },
-		"may_verify" => 1,
+	int => {
+		ctype => "int",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { int_print_assign(@_) },
+		may_verify => 1,
 	},
-	"lint" => {
-		"ctype" => "long",
-		"needs_val" => "required",
-		"generate_has" => 1, #true
-		"generate_get" => 1, #true
-		"print_assign" => sub { int_print_assign(@_) },
-		"may_verify" => 1,
+	lint => {
+		ctype => "long",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { int_print_assign(@_) },
+		may_verify => 1,
 	},
-	"char" => {
-		"ctype" => "char",
-		"needs_val" => "required",
-		"generate_has" => 1, #true
-		"generate_get" => 1, #true
-		"print_assign" => sub { char_print_assign(@_) },
-		"may_verify" => 1,
+	char => {
+		ctype => "char",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { char_print_assign(@_) },
+		may_verify => 1,
 	},
-	"flag" => {
-		"ctype" => "int",
-		"needs_val" => 0, #false
-		"generate_has" => 0, #true
-		"generate_get" => 1, #true
-		"print_assign" => sub { flag_print_assign(@_) },
-		"may_verify" => 0,
+	flag => {
+		ctype => "int",
+		needs_val => 0, #false
+		generate_has => 0, #true
+		generate_get => 1, #true
+		print_assign => sub { flag_print_assign(@_) },
+		may_verify => 0,
 	},
-	"counter" => {
-		"ctype" => "int",
-		"needs_val" => 0, #false
-		"generate_has" => 0, #false
-		"generate_get" => 1, #true
-		"print_assign" => sub { counter_print_assign(@_) },
-		"may_verify" => 0,
+	counter => {
+		ctype => "int",
+		needs_val => 0, #false
+		generate_has => 0, #false
+		generate_get => 1, #true
+		print_assign => sub { counter_print_assign(@_) },
+		may_verify => 0,
 	},
-	"help" => {
-		"needs_val" => 0, # TODO: topic --> "optional"
-		"generate_has" => 0,
-		"generate_get" => 0,
-		"print_assign" => sub { help_print_assign(@_) },
-		"may_verify" => 0,
+	help => {
+		needs_val => 0, # TODO: topic --> "optional"
+		generate_has => 0,
+		generate_get => 0,
+		print_assign => sub { help_print_assign(@_) },
+		may_verify => 0,
 	},
-	"version" => {
-		"needs_val" => 0,
-		"generate_has" => 0,
-		"generate_get" => 0,
-		"print_assign" => sub { version_print_assign(@_) },
-		"may_verify" => 0,
+	version => {
+		needs_val => 0,
+		generate_has => 0,
+		generate_get => 0,
+		print_assign => sub { version_print_assign(@_) },
+		may_verify => 0,
 	},
-	"callback" => {
-		"needs_val" => "required",
-		"generate_has" => 0,
-		"generate_get" => 0,
-		"print_assign" => sub { callback_print_assign(@_) },
-		"may_verify" => 0,
+	callback => {
+		needs_val => "required",
+		generate_has => 0,
+		generate_get => 0,
+		print_assign => sub { callback_print_assign(@_) },
+		may_verify => 0,
 	}
 }; # my $types
 
@@ -261,33 +261,33 @@ sub verify_options {
 	my %long;
 	my $cnt = 0;
 	foreach my $option (@options) {
-		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{'short'}});
-		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{'long'}});
-		$short{$option->{'short'}} = 1;
-		$long{$option->{'long'}} = 1;
-		die "option #$cnt has no name\n" unless (defined $option->{'short'} or defined $option->{'long'});
-		die "option #$cnt has no type\n" unless (defined $option->{'type'});
-		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{'type'}});
-		die "option #$cnt: invalid short name " . $option->{'short'} unless (($option->{'short'} // "a") =~ /^[a-zA-Z]$/);
-		die "option #$cnt: invalid long name " . $option->{'long'} unless (($option->{'long'} // "ab") =~ /^[a-zA-Z][a-zA-Z0-9-]+$/);
-		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{'verify'} or $types->{$option->{type}}->{'may_verify'});
-		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{'callback'} or $option->{'type'} eq "callback");
-		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{'callback'} and $option->{'type'} eq "callback");
-		$option->{'name'} = $option->{'short'};
-		$option->{'name'} //= $option->{'long'};
-		$option->{'name'} =~ s/-/_/g;
-		$option->{'name'} .= "_option";
-		$any_help_option = 1 if ($option->{'type'} eq "help");
-		$any_version_option = 1 if ($option->{'type'} eq "version");
-		$any_long_option = 1 if (defined $option->{'long'});
+		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{short}});
+		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{long}});
+		$short{$option->{short}} = 1;
+		$long{$option->{long}} = 1;
+		die "option #$cnt has no name\n" unless (defined $option->{short} or defined $option->{long});
+		die "option #$cnt has no type\n" unless (defined $option->{type});
+		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{type}});
+		die "option #$cnt: invalid short name " . $option->{short} unless (($option->{short} // "a") =~ /^[a-zA-Z]$/);
+		die "option #$cnt: invalid long name " . $option->{long} unless (($option->{long} // "ab") =~ /^[a-zA-Z][a-zA-Z0-9-]+$/);
+		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{verify} or $types->{$option->{type}}->{may_verify});
+		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{callback} or $option->{type} eq "callback");
+		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{callback} and $option->{type} eq "callback");
+		$option->{name} = $option->{short};
+		$option->{name} //= $option->{long};
+		$option->{name} =~ s/-/_/g;
+		$option->{name} .= "_option";
+		$any_help_option = 1 if ($option->{type} eq "help");
+		$any_version_option = 1 if ($option->{type} eq "version");
+		$any_long_option = 1 if (defined $option->{long});
 		$cnt++;
 	}
-	$prefix = $config{'prefix'} if defined $config{'prefix'};
-	$iguard = $config{'iguard'} if defined $config{'iguard'};
+	$prefix = $config{prefix} if defined $config{prefix};
+	$iguard = $config{iguard} if defined $config{iguard};
 
 	for my $arg (@args) {
-		die "argument specification #$cnt has no name\n" unless $arg->{'name'};
-		my $c = $arg->{'count'};
+		die "argument specification #$cnt has no name\n" unless $arg->{name};
+		my $c = $arg->{count};
 		die "argument specification #$cnt has invalid count specification: $c\n" unless ($c eq "1" or $c eq "?" or $c eq "*" or $c eq "+");
 		$cnt++;
 	}
@@ -304,12 +304,12 @@ sub print_header {
 	print $out "extern int ${prefix}_arg_count(void);\n";
 	print $out "extern const char *${prefix}_arg_get(int);\n\n";
 	for my $option (@options) {
-		my $typename = $option->{'type'};
+		my $typename = $option->{type};
 		my $type = $types->{$typename};
-		declare_has_func($out, $option->{'short'}, "extern") if ($type->{'generate_has'} and defined $option->{'short'});
-		declare_has_func($out, $option->{'long'}, "extern") if ($type->{'generate_has'} and defined $option->{'long'});
-		declare_get_func($out, $type->{'ctype'}, $option->{'short'}, "extern") if ($type->{'generate_get'} and defined $option->{'short'});
-		declare_get_func($out, $type->{'ctype'}, $option->{'long'}, "extern") if ($type->{'generate_get'} and defined $option->{'long'});
+		declare_has_func($out, $option->{short}, "extern") if ($type->{generate_has} and defined $option->{short});
+		declare_has_func($out, $option->{long}, "extern") if ($type->{generate_has} and defined $option->{long});
+		declare_get_func($out, $type->{ctype}, $option->{short}, "extern") if ($type->{generate_get} and defined $option->{short});
+		declare_get_func($out, $type->{ctype}, $option->{long}, "extern") if ($type->{generate_get} and defined $option->{long});
 	}
 
 	print $out "#endif /* $iguard */\n" if ($iguard);
@@ -318,10 +318,10 @@ sub print_header {
 
 # get the minimum allowed number of arguments
 sub get_args_min_count {
-	my %min = ( '*' => 0, '+' => '1', '?' => '0', '1' => '1' );
+	my %min = ( '*' => 0, '+' => 1, '?' => 0, '1' => 1 );
 	my $sum = 0;
 	for my $arg (@args) {
-		$sum += $min{$arg->{'count'}};
+		$sum += $min{$arg->{count}};
 	}
 	return $sum;
 } # sub get_args_min_count
@@ -331,7 +331,7 @@ sub get_args_max_count {
 	my %max = ( '?' => 1, '1' => 1 );
 	my $sum = 0;
 	for my $arg (@args) {
-		my $tmp = $max{$arg->{'count'}};
+		my $tmp = $max{$arg->{count}};
 		return undef unless (defined $tmp);
 		$sum += $tmp;
 	}
@@ -358,41 +358,41 @@ sub read_config_file {
 # print the do_help function
 sub print_do_help_function {
 	my ($out) = @_;
-	my $stream = $help{'output'} // "stdout";
-	my $indent = $help{'indent'} // " " x2;
-	my $indent2 = $help{'indent2'} // " " x4;
+	my $stream = $help{output} // "stdout";
+	my $indent = $help{indent} // " " x2;
+	my $indent2 = $help{indent2} // " " x4;
 	print $out "PRIVATE void do_help(int die_usage) {\n";
-	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{'progname'} // "save_argv[0]").qq@);\n@;
-	my $argdesc = cstring(join " ", map { decorate_argument($_->{'count'}, $_->{'name'}) } values @args);
+	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{progname} // "save_argv[0]").qq@);\n@;
+	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
 	print $out qq @\tif (die_usage) exit(EXIT_FAILURE);\n@;
 
-	if ($help{'description'}) {
+	if ($help{description}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
-		for my $token (split "\n", $help{'description'}) {
+		for my $token (split "\n", $help{description}) {
 			print $out qq @\tfputs("$indent"  @ .  cstring($token) . qq @  "\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
 	}
-	if ($help{'show_options'} ne "no") {
+	if ($help{show_options} ne "no") {
 		print $out qq @\tfputs(@ . cstring($lang{help_options}) . qq @ "\\n", $stream);\n@;
 		for my $o (@options) {
-			my $type = $types->{$o->{'type'}};
+			my $type = $types->{$o->{type}};
 			print $out qq @\tfputs("$indent@;
-			print $out qq @-$o->{short}@ if $o->{'short'};
-			print $out qq @ @ if ($o->{'short'} and $o->{'long'});
-			print $out qq @--$o->{long}@ if $o->{'long'};
-			print $out qq @ " @ . (cstring($o->{'arg'} // "ARG")) . qq @ "@ if ($type->{'needs_val'} eq "required");
-			print $out qq @ " "("@ . (cstring($o->{'arg'} // "ARG")) . qq @ ")" "@ if ($type->{'needs_val'} eq "optional");
-			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{'description'};
+			print $out qq @-$o->{short}@ if $o->{short};
+			print $out qq @ @ if ($o->{short} and $o->{long});
+			print $out qq @--$o->{long}@ if $o->{long};
+			print $out qq @ " @ . (cstring($o->{arg} // "ARG")) . qq @ "@ if ($type->{needs_val} eq "required");
+			print $out qq @ " "("@ . (cstring($o->{arg} // "ARG")) . qq @ ")" "@ if ($type->{needs_val} eq "optional");
+			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{description};
 			print $out qq @\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
 	}
-	if ($help{'info'}) {
+	if ($help{info}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_info}) . qq @ "\\n", $stream);\n@;
-		for my $token (split "\n", $help{'info'}) {
+		for my $token (split "\n", $help{info}) {
 			print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@;
 		}
 		print $out qq @\tfputs("\\n", $stream);\n@;
@@ -403,15 +403,15 @@ sub print_do_help_function {
 #print the do_version function
 sub print_do_version_function {
 	my ($out) = @_;
-	my $progname = $config{'progname'} // "save_argv[0]";
-	my $stream = $version{'output'} // "stdout";
-	my $indent = $version{'indent'} // " " x2;
+	my $progname = $config{progname} // "save_argv[0]";
+	my $stream = $version{output} // "stdout";
+	my $indent = $version{indent} // " " x2;
 	print $out "PRIVATE void do_version(void) {\n";
-	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{'version'});
-	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{'copyright'});
-	print $out qq @\tfputs("\\n", $stream);\n@ if $version{'info'};
-	for my $token (split "\n", $version{'info'}) {
-		print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@ if ($version{'info'});
+	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
+	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
+	print $out qq @\tfputs("\\n", $stream);\n@ if $version{info};
+	for my $token (split "\n", $version{info}) {
+		print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@ if ($version{info});
 	}
 	print $out qq @\tfputs("\\n", $stream);\n@;
 	print $out "}\n\n";
@@ -426,7 +426,7 @@ sub print_impl {
 	print $out "#include <stdlib.h>\n";
 	print $out "#include <string.h>\n";
 	print $out "#include <errno.h>\n";
-	print $out "#include $_\n" for (@{$config{'include'}});
+	print $out "#include $_\n" for (@{$config{include}});
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
 	print $out "\n#define PRIVATE static inline __attribute__((unused))\n";
 	print $out "#define STR(x) #x\n";
@@ -439,13 +439,13 @@ sub print_impl {
 	print_do_version_function($out) if ($any_version_option);
 
 	for my $option (@options) {
-		my $typename = $option->{'type'};
+		my $typename = $option->{type};
 		my $type = $types->{$typename};
-		declare_var ($out, $type->{'ctype'}, $option->{'name'}, $option->{'init'}, "static", $type->{'generate_has'});
-		print_get_func($out, $type->{'ctype'}, $option->{'short'}, "", $option->{'name'}) if ($type->{'generate_get'} and $option->{'short'});
-		print_get_func($out, $type->{'ctype'}, $option->{'long'}, "", $option->{'name'}) if ($type->{'generate_get'} and $option->{'long'});
-		print_has_func($out, $option->{'short'}, "", $option->{'name'}) if ($option->{'short'} and $type->{'generate_has'});
-		print_has_func($out, $option->{'long'}, "", $option->{'name'}) if ($option->{'long'} and $type->{'generate_has'});
+		declare_var ($out, $type->{ctype}, $option->{name}, $option->{init}, "static", $type->{generate_has});
+		print_get_func($out, $type->{ctype}, $option->{short}, "", $option->{name}) if ($type->{generate_get} and $option->{short});
+		print_get_func($out, $type->{ctype}, $option->{long}, "", $option->{name}) if ($type->{generate_get} and $option->{long});
+		print_has_func($out, $option->{short}, "", $option->{name}) if ($option->{short} and $type->{generate_has});
+		print_has_func($out, $option->{long}, "", $option->{name}) if ($option->{long} and $type->{generate_has});
 		print $out "\n";
 	}
 
@@ -453,19 +453,19 @@ sub print_impl {
 	print $out "int ${prefix}_arg_count(void) {\n\treturn save_argc - first_arg;\n}\n\n";
 
 	print $out "const char *${prefix}_arg_get(int index) {";
-	print $out "\n\tif (index < 0 || first_arg + index > save_argc)\n\t\treturn NULL;" if $config{'indexcheck'};
+	print $out "\n\tif (index < 0 || first_arg + index > save_argc)\n\t\treturn NULL;" if $config{indexcheck};
 	print $out "\n\treturn save_argv[first_arg + index];\n";
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void warn_unknown_long(const char *option) {\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}).qq @ "\\n", option);\n@;
-	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} ne "ignore");
+	print $out "\texit(EXIT_FAILURE);\n" if ($config{unknown} ne "ignore");
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void warn_unknown_short(const char option) {\n@;
 	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}) . qq @ "\\n", opt);\n@;
-	print $out "\texit(EXIT_FAILURE);\n" if ($config{'unknown'} ne "ignore");
+	print $out "\texit(EXIT_FAILURE);\n" if ($config{unknown} ne "ignore");
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void die_noValue_long(const char *option) {\n@;
@@ -510,36 +510,36 @@ sub print_impl {
 	print $out "\t\t}\n";
 
 	#search long options
-	for my $o (grep { defined $_->{'long'} } @options) {
-		my $type = $types->{$o->{'type'}};
-		my $assign_func = $type->{'print_assign'};
-		my $name = $o->{'name'};
-		if ($type->{'needs_val'}) {
+	for my $o (grep { defined $_->{long} } @options) {
+		my $type = $types->{$o->{type}};
+		my $assign_func = $type->{print_assign};
+		my $name = $o->{name};
+		if ($type->{needs_val}) {
 			# --option=value
-			print $out "\t\ta = strstart(argv[i], \"--$o->{'long'}=\");\n";
+			print $out "\t\ta = strstart(argv[i], \"--$o->{long}=\");\n";
 			print $out "\t\tif (a) {\n";
-			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
+			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "a");
-			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "a", $o->{'verify'}) if $o->{'verify'};
-			print_exit_call($out, "\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
+			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\tcontinue;\n\t\t}\n";
 
 			# --option value
-			print $out "\t\tif (streq(argv[i], \"--$o->{'long'}\")) {\n";
+			print $out "\t\tif (streq(argv[i], \"--$o->{long}\")) {\n";
 			print $out "\t\t\ti++;\n";
-			print $out "\t\t\tif (i == argc)\n\t\t\t\tdie_noValue_long(\"--$o->{long}\");\n" if ($type->{'needs_val'} eq "required");
-			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
+			print $out "\t\t\tif (i == argc)\n\t\t\t\tdie_noValue_long(\"--$o->{long}\");\n" if ($type->{needs_val} eq "required");
+			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "argv[i]");
-			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "argv[i]", $o->{'verify'}) if $o->{'verify'};
-			print_exit_call($out, "\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "argv[i]", $o->{verify}) if $o->{verify};
+			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\tcontinue;\n\t\t}\n";
 
 		} else {
 			# --flag
-			print $out "\t\tif (streq(argv[i], \"--$o->{'long'}\")) {\n";
-			print $out "\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
+			print $out "\t\tif (streq(argv[i], \"--$o->{long}\")) {\n";
+			print $out "\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
-			print_exit_call($out, "\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\tcontinue;\n\t\t}\n";
 		}
 	}
@@ -549,32 +549,32 @@ sub print_impl {
 	# search short options
 	print $out "\t\t/* argv[i][0] == '-' && argv[i][1] != '-' */\n";
 	print $out "\t\tfor (int j = 1; argv[i][j]; ++j) {\n";
-	for my $o (grep { defined $_->{'short'} } @options) {
-		my $type = $types->{$o->{'type'}};
-		my $name = $o->{'name'};
-		my $assign_func = $type->{'print_assign'};
+	for my $o (grep { defined $_->{short} } @options) {
+		my $type = $types->{$o->{type}};
+		my $name = $o->{name};
+		my $assign_func = $type->{print_assign};
 		print $out "\t\t\tif (argv[i][j] == '$o->{short}') {\n";
-		if ($type->{'needs_val'}) {
+		if ($type->{needs_val}) {
 			# -ovalue
 			print $out "\t\t\t\tif (argv[i][j+1]) {\n";
-			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
+			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t\t","\"-$o->{short}\"", "${prefix}_$name", $o, "(argv[i] + j + 1)");
-			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "(argv[i] + j + 1)", $o->{'verify'}) if $o->{'verify'};
-			print_exit_call($out, "\t\t\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "(argv[i] + j + 1)", $o->{verify}) if $o->{verify};
+			print_exit_call($out, "\t\t\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\t\t\tbreak;\n";
 			print $out "\t\t\t\t} else {\n\t\t\t\t\ti++;\n";
 			# -o value
-			print $out "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\tdie_noValue_short('$o->{short}');\n" if ($type->{'needs_val'} eq "required");
-			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
+			print $out "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\tdie_noValue_short('$o->{short}');\n" if ($type->{needs_val} eq "required");
+			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", $o, "argv[i]");
-			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "argv[i]", $o->{'verify'}) if $o->{'verify'};
-			print_exit_call($out, "\t\t\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "argv[i]", $o->{verify}) if $o->{verify};
+			print_exit_call($out, "\t\t\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\t\t\tbreak;\n\t\t\t\t}\n";
 		} else {
 			# -f (flag)
-			print $out "\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{'generate_has'});
-			&$assign_func($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_" . $o->{'name'});
-			print_exit_call($out, "\t\t\t\t", $o->{'exit'}) if $o->{'exit'};
+			print $out "\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
+			&$assign_func($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_" . $o->{name});
+			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
 		}
 		print $out "\t\t\t\tcontinue;\n";
 		print $out "\t\t\t}\n";
