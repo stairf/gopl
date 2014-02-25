@@ -468,12 +468,12 @@ sub print_impl {
 	print $out "\texit(EXIT_FAILURE);\n" if ($config{unknown} ne "ignore");
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_noValue_long(const char *option) {\n@;
+	print $out qq @PRIVATE void die_no_value_long(const char *option) {\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
 	print $out "\texit(EXIT_FAILURE);\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_noValue_short(const char option) {\n@;
+	print $out qq @PRIVATE void die_no_value_short(const char option) {\n@;
 	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", opt);\n@;
 	print $out "\texit(EXIT_FAILURE);\n";
@@ -527,7 +527,7 @@ sub print_impl {
 			# --option value
 			print $out "\t\tif (streq(argv[i], \"--$o->{long}\")) {\n";
 			print $out "\t\t\ti++;\n";
-			print $out "\t\t\tif (i == argc)\n\t\t\t\tdie_noValue_long(\"--$o->{long}\");\n" if ($type->{needs_val} eq "required");
+			print $out "\t\t\tif (i == argc)\n\t\t\t\tdie_no_value_long(\"--$o->{long}\");\n" if ($type->{needs_val} eq "required");
 			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "argv[i]");
 			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "argv[i]", $o->{verify}) if $o->{verify};
@@ -564,7 +564,7 @@ sub print_impl {
 			print $out "\t\t\t\t\tbreak;\n";
 			print $out "\t\t\t\t} else {\n\t\t\t\t\ti++;\n";
 			# -o value
-			print $out "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\tdie_noValue_short('$o->{short}');\n" if ($type->{needs_val} eq "required");
+			print $out "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n" if ($type->{needs_val} eq "required");
 			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", $o, "argv[i]");
 			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "argv[i]", $o->{verify}) if $o->{verify};
