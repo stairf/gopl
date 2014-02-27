@@ -136,6 +136,17 @@ sub float_print_assign {
 	print $out $indent . "$varname = assign_f;\n";
 } # sub float_print_assign
 
+# print assignment for type "lfloat"
+sub lfloat_print_assign {
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
+	print $out $indent . "char *assign_endptr;\n";
+	print $out $indent . "errno = 0;\n";
+	print $out $indent . "double assign_f = strtod($src, &assign_endptr);\n";
+	print $out $indent . "if ((!*($src)) || errno || *assign_endptr)\n";
+	print $out $indent . "\tdie_invalid_value($option, $src);\n";
+	print $out $indent . "$varname = assign_f;\n";
+} # sub lfloat_print_assign
+
 # print assignment for type "char"
 sub char_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -225,6 +236,14 @@ my $types = {
 		generate_has => 1, #true
 		generate_get => 1, #true
 		print_assign => sub { float_print_assign(@_) },
+		may_verify => 1,
+	},
+	lfloat => {
+		ctype => "double",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { lfloat_print_assign(@_) },
 		may_verify => 1,
 	},
 	char => {
