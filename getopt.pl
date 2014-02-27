@@ -120,7 +120,11 @@ sub int_print_assign {
 	print $out $indent . "char *assign_endptr;\n";
 	print $out $indent . "errno = 0;\n";
 	print $out $indent . "long assign_l = strtol($src, &assign_endptr, 10);\n";
-	print $out $indent . "if ((!*($src)) || errno || *assign_endptr)\n";
+	if ($ref->{type} eq "int") {
+		print $out $indent . "if ((!*($src)) || errno || *assign_endptr || assign_l < INT_MIN || assign_l > INT_MAX)\n";
+	} else {
+		print $out $indent . "if ((!*($src)) || errno || *assign_endptr)\n";
+	}
 	print $out $indent . "\tdie_invalid_value($option, $src);\n";
 	print $out $indent . "$varname = assign_l;\n";
 } # sub int_print_assign
@@ -464,6 +468,7 @@ sub print_impl {
 	print $out "#include <stdlib.h>\n";
 	print $out "#include <string.h>\n";
 	print $out "#include <errno.h>\n";
+	print $out "#include <limits.h>\n";
 	print $out "#include $_\n" for (@{$config{include}});
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
 	print $out "\n#define PRIVATE static inline __attribute__((unused))\n";
