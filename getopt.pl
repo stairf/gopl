@@ -63,6 +63,12 @@ sub cstring {
 	return '"' . $in . '"';
 } # sub cstring
 
+# check if a string is contained in an array
+sub is_one_of {
+	my ($is,@exp) = @_;
+	return grep { $is eq $_ } @exp;
+} # sub is_one_of
+
 # declare a C variable
 sub declare_var {
 	my ($out, $ctype, $varname, $val, $modifiers, $hasvar) = @_;
@@ -368,7 +374,7 @@ sub verify_options {
 	for my $arg (@args) {
 		die "argument specification #$cnt has no name\n" unless $arg->{name};
 		my $c = $arg->{count};
-		die "argument specification #$cnt has invalid count specification: $c\n" unless ($c eq "1" or $c eq "?" or $c eq "*" or $c eq "+");
+		die "argument specification #$cnt has invalid count specification: $c\n" unless is_one_of($c,"1","?","*","+");
 		$cnt++;
 	}
 } # sub verify_options
