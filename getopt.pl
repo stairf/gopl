@@ -350,8 +350,8 @@ sub verify_config {
 		die "option #$cnt is no hash reference\n" unless (ref $option eq "HASH");
 		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{short}});
 		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{long}});
-		$short{$option->{short}} = 1;
-		$long{$option->{long}} = 1;
+		$short{$option->{short}} = 1 if defined $option->{short};
+		$long{$option->{long}} = 1 if defined $option->{long};
 		die "option #$cnt has no name\n" unless (defined $option->{short} or defined $option->{long});
 		die "option #$cnt has no type\n" unless (defined $option->{type});
 		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{type}});
