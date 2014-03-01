@@ -397,6 +397,8 @@ sub print_header {
 	print $out "/*\n * $outfile\n * getopt.pl generated this header file\n */\n\n";
 	print $out "#ifndef $iguard\n#define $iguard\n\n" if ($iguard);
 
+	print $out "#ifdef __cplusplus\nextern \"C\" {\n#endif /* __cplusplus */\n\n";
+
 	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
 	print $out "extern int ${prefix}_arg_count(void);\n";
 	print $out "extern const char *${prefix}_arg_get(int);\n\n";
@@ -408,6 +410,8 @@ sub print_header {
 		declare_get_func($out, $type->{ctype}, $option->{short}, "extern") if ($type->{generate_get} and defined $option->{short});
 		declare_get_func($out, $type->{ctype}, $option->{long}, "extern") if ($type->{generate_get} and defined $option->{long});
 	}
+
+	print $out "#ifdef __cplusplus\n} /* extern \"C\" */\n#endif /* __cplusplus */\n\n";
 
 	print $out "#endif /* $iguard */\n" if ($iguard);
 	close $out;
