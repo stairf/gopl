@@ -25,6 +25,7 @@ our @args = ( { name => "arguments", count => "*" } );
 our %lang = (
 	help_usage => "usage: %s [options] ",
 	help_desc => "DESCRIPTION:",
+	help_args => "ARGUMENTS:",
 	help_options => "OPTIONS:",
 	help_info => "INFO:",
 	opt_unknown => "unknown option `%s'",
@@ -384,6 +385,7 @@ sub verify_config {
 	die "\$config{unknown} must be 'die' or 'ignore'\n" if (defined $config{unknown} and !is_one_of($config{unknown},'die','ignore'));
 	die "\$config{include} must be an array reference\n" if (defined $config{include} and ref $config{include} ne "ARRAY");
 
+	die "\$help{show_args} must be 'yes' or 'no'\n" if (defined $help{show_args} and !is_one_of($help{show_args},'yes','no'));
 	die "\$help{show_options} must be 'yes' or 'no'\n" if (defined $help{show_options} and !is_one_of($help{show_options},'yes','no'));
 
 } # sub verify_config
@@ -470,6 +472,15 @@ sub print_do_help_function {
 			print $out cstring($indent . $token . "\n") . "\n\t\t";
 		}
 		print $out qq @"\\n", $stream);\n@
+	}
+	if ($help{show_args} eq "yes") {
+		print $out qq @\tfputs(@ . cstring($lang{help_args}) . qq @ "\\n", $stream);\n@;
+		print $out qq @\tfputs(@;
+		for my $a (@args) {
+			print $out cstring($indent . $a->{name} . "\n") . "\n\t\t";
+			print $out cstring($indent2 . $a->{description} . "\n") . "\n\t\t" if defined $a->{description};
+		}
+		print $out qq @"\\n", $stream);\n@;
 	}
 	if ($help{show_options} ne "no") {
 		print $out qq @\tfputs(@ . cstring($lang{help_options}) . qq @ "\\n", $stream);\n@;
