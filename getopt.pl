@@ -342,11 +342,12 @@ my $types = {
 }; # my $types
 
 # verify the options and the config
-sub verify_options {
+sub verify_config {
 	my %short;
 	my %long;
 	my $cnt = 0;
 	foreach my $option (@options) {
+		die "option #$cnt is no hash reference\n" unless (ref $option eq "HASH");
 		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{short}});
 		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{long}});
 		$short{$option->{short}} = 1;
@@ -372,12 +373,20 @@ sub verify_options {
 	$iguard = $config{iguard} if defined $config{iguard};
 
 	for my $arg (@args) {
+		die "argument specification #$cnt is no hash reference\n" unless (ref $arg eq "HASH");
 		die "argument specification #$cnt has no name\n" unless $arg->{name};
 		my $c = $arg->{count};
 		die "argument specification #$cnt has invalid count specification: $c\n" unless is_one_of($c,"1","?","*","+");
 		$cnt++;
 	}
-} # sub verify_options
+
+	die "\$config{indexcheck} must be 'yes' or 'no'\n" if (defined $config{indexcheck} and !is_one_of($config{indexcheck},'yes','no'));
+	die "\$config{unknown} must be 'die' or 'ignore'\n" if (defined $config{unknown} and !is_one_of($config{unknown},'die','ignore'));
+	die "\$config{include} must be an array reference\n" if (defined $config{include} and ref $config{include} ne "ARRAY");
+
+	die "\$help{show_options} must be 'yes' or 'no'\n" if (defined $help{show_options} and !is_one_of($help{show_options},'yes','no'));
+
+} # sub verify_config
 
 # generate the header file
 sub print_header {
@@ -684,7 +693,7 @@ sub print_impl {
 
 ### MAIN ###
 read_config_file($_) for @ARGV;
-verify_options;
+verify_config;
 print_header($opts{h}) if ($opts{h});
 print_impl($opts{c}) if ($opts{c});
 
