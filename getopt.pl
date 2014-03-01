@@ -465,32 +465,35 @@ sub print_do_help_function {
 
 	if ($help{description}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
+		print $out qq @\tfputs(@;
 		for my $token (split "\n", $help{description}) {
-			print $out qq @\tfputs("$indent"  @ .  cstring($token) . qq @  "\\n", $stream);\n@;
+			print $out cstring($indent . $token . "\n") . "\n\t\t";
 		}
-		print $out qq @\tfputs("\\n", $stream);\n@;
+		print $out qq @"\\n", $stream);\n@
 	}
 	if ($help{show_options} ne "no") {
 		print $out qq @\tfputs(@ . cstring($lang{help_options}) . qq @ "\\n", $stream);\n@;
+		print $out qq @\tfputs(@;
 		for my $o (@options) {
 			my $type = $types->{$o->{type}};
-			print $out qq @\tfputs("$indent@;
+			print $out qq @"$indent@;
 			print $out qq @-$o->{short}@ if $o->{short};
 			print $out qq @ @ if ($o->{short} and $o->{long});
 			print $out qq @--$o->{long}@ if $o->{long};
 			print $out qq @ " @ . (cstring($o->{arg} // "ARG")) . qq @ "@ if ($type->{needs_val} eq "required");
 			print $out qq @ " "("@ . (cstring($o->{arg} // "ARG")) . qq @ ")" "@ if ($type->{needs_val} eq "optional");
 			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{description};
-			print $out qq @\\n", $stream);\n@;
+			print $out qq @\\n"\n\t\t@;
 		}
-		print $out qq @\tfputs("\\n", $stream);\n@;
+		print $out qq @"\\n", $stream);\n@;
 	}
 	if ($help{info}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_info}) . qq @ "\\n", $stream);\n@;
+		print $out qq @\tfputs(@;
 		for my $token (split "\n", $help{info}) {
-			print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@;
+			print $out cstring($indent . $token . "\n") . "\n\t\t";
 		}
-		print $out qq @\tfputs("\\n", $stream);\n@;
+		print $out qq @"\\n", $stream);\n@;
 	}
 	print $out qq @}\n\n@;
 } # sub print_do_help_function
@@ -504,11 +507,14 @@ sub print_do_version_function {
 	print $out "PRIVATE void do_version(void) {\n";
 	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
 	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
-	print $out qq @\tfputs("\\n", $stream);\n@ if $version{info};
-	for my $token (split "\n", $version{info}) {
-		print $out qq @\tfputs("$indent"  @ . cstring($token) . qq @  "\\n", $stream);\n@ if ($version{info});
-	}
 	print $out qq @\tfputs("\\n", $stream);\n@;
+	if ($version{info}) {
+		print $out qq @\tfputs(@;
+		for my $token (split "\n", $version{info}) {
+			print $out cstring($indent . $token . "\n") . "\n\t\t";
+		}
+		print $out qq @"\\n", $stream);\n@;
+	}
 	print $out "}\n\n";
 } # sub print_do_version_function
 
