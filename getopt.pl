@@ -632,25 +632,21 @@ sub print_impl {
 		my $assign_func = $type->{print_assign};
 		my $name = $o->{name};
 		if ($type->{needs_val}) {
-			# --option=value
-			print $out "\t\ta = strstart(argv[i], \"--$o->{long}=\");\n";
-			print $out "\t\tif (a) {\n";
+			# --option=value, --option value
+			print $out "\t\ta = strstart(argv[i], \"--$o->{long}\");\n";
+			print $out "\t\tif (a && (!*a || '=' == *a)) {\n";
+			print $out "\t\t\tif (!*a) {\n";
+			print $out "\t\t\t\ta = argv[++i];\n";
+			print $out "\t\t\t\tif (!a)\n\t\t\t\t\tdie_no_value_long(\"--$o->{long}\");\n";
+			print $out "\t\t\t} else {\n";
+			print $out "\t\t\t\ta++;\n";
+			print $out "\t\t\t}\n";
+
 			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "a");
 			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\tcontinue;\n\t\t}\n";
-
-			# --option value
-			print $out "\t\tif (streq(argv[i], \"--$o->{long}\")) {\n";
-			print $out "\t\t\ti++;\n";
-			print $out "\t\t\tif (i == argc)\n\t\t\t\tdie_no_value_long(\"--$o->{long}\");\n" if ($type->{needs_val} eq "required");
-			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "argv[i]");
-			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "argv[i]", $o->{verify}) if $o->{verify};
-			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\tcontinue;\n\t\t}\n";
-
 		} else {
 			# --flag
 			print $out "\t\tif (streq(argv[i], \"--$o->{long}\")) {\n";
