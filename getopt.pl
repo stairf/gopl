@@ -37,7 +37,7 @@ my $iguard = "";
 my $prefix = "opt";
 my $any_help_option;
 my $any_version_option;
-my $any_long_option;
+my $any_option_with_value;
 
 
 sub usage {
@@ -367,7 +367,7 @@ sub verify_config {
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
 		$any_version_option = 1 if ($option->{type} eq "version");
-		$any_long_option = 1 if (defined $option->{long});
+		$any_option_with_value = 1 if ($types->{$option->{type}}->{needs_val});
 		$cnt++;
 	}
 	$prefix = $config{prefix} if defined $config{prefix};
@@ -613,7 +613,7 @@ sub print_impl {
 	# print opt_parse / ${prefix}_parse
 	print $out "void ${prefix}_parse(int argc, const char **argv) {\n";
 	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
-	print $out "\tconst char *a;\n" if ($any_long_option);
+	print $out "\tconst char *a;\n" if ($any_option_with_value);
 	print $out "\tfor (int i = 1; i < argc; ++i) {\n";
 
 	# argv[i] is argument? ->break
@@ -668,28 +668,25 @@ sub print_impl {
 		my $assign_func = $type->{print_assign};
 		print $out "\t\t\tif (argv[i][j] == '$o->{short}') {\n";
 		if ($type->{needs_val}) {
-			# -ovalue
-			print $out "\t\t\t\tif (argv[i][j+1]) {\n";
-			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t\t\t","\"-$o->{short}\"", "${prefix}_$name", $o, "(argv[i] + j + 1)");
-			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "(argv[i] + j + 1)", $o->{verify}) if $o->{verify};
-			print_exit_call($out, "\t\t\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\t\t\tbreak;\n";
-			print $out "\t\t\t\t} else {\n\t\t\t\t\ti++;\n";
-			# -o value
-			print $out "\t\t\t\t\tif (!argv[i])\n\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n" if ($type->{needs_val} eq "required");
-			print $out "\t\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", $o, "argv[i]");
-			print_verify($out, "\t\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "argv[i]", $o->{verify}) if $o->{verify};
-			print_exit_call($out, "\t\t\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\t\t\tbreak;\n\t\t\t\t}\n";
+			# -ovalue, -o value
+			print $out "\t\t\t\ta = argv[i] + j + 1;\n";
+			print $out "\t\t\t\tif (!*a) {\n";
+			print $out "\t\t\t\t\ta = argv[++i];\n";
+			print $out "\t\t\t\t\tif (!a)\n";
+			print $out "\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n";
+			print $out "\t\t\t\t}\n";
+			print $out "\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
+			&$assign_func($out, "\t\t\t\t","\"-$o->{short}\"", "${prefix}_$name", $o, "a");
+			print_verify($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
+			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
+			print $out "\t\t\t\tbreak;\n";
 		} else {
 			# -f (flag)
 			print $out "\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_" . $o->{name});
 			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
+			print $out "\t\t\t\tcontinue;\n";
 		}
-		print $out "\t\t\t\tcontinue;\n";
 		print $out "\t\t\t}\n";
 	}
 	print $out "\t\t\twarn_unknown_short(argv[i][j]);\n";
