@@ -527,13 +527,16 @@ sub print_do_help_function {
 		print $out qq @\tfputs(@ . cstring($lang{help_options}) . qq @ "\\n", $stream);\n@;
 		print $out qq @\tfputs(@;
 		for my $o (@options) {
+			my $arg = $o->{arg};
+			$arg //= "{" . $o->{values} =~ s/,/|/gr . "}" if $o->{values};
+			$arg //= "ARG";
 			my $type = $types->{$o->{type}};
 			print $out qq @"$indent@;
 			print $out qq @-$o->{short}@ if $o->{short};
 			print $out qq @ @ if ($o->{short} and $o->{long});
 			print $out qq @--$o->{long}@ if $o->{long};
-			print $out qq @ " @ . (cstring($o->{arg} // "ARG")) . qq @ "@ if ($type->{needs_val} eq "required");
-			print $out qq @ " "("@ . (cstring($o->{arg} // "ARG")) . qq @ ")" "@ if ($type->{needs_val} eq "optional");
+			print $out qq @ " @ . (cstring($arg)) . qq @ "@ if ($type->{needs_val} eq "required");
+			print $out qq @ " "("@ . (cstring($arg)) . qq @ ")" "@ if ($type->{needs_val} eq "optional");
 			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{description};
 			print $out qq @\\n"\n\t\t@;
 		}
