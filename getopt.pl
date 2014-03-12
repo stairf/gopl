@@ -38,6 +38,7 @@ my $prefix = "opt";
 my $any_help_option;
 my $any_version_option;
 my $any_option_with_value;
+my @enums;
 
 
 sub usage {
@@ -114,6 +115,17 @@ sub print_has_func {
 	$modifiers .= " " if ($modifiers);
 	print $out $modifiers . "int ${prefix}_has_$opt (void) {\n\treturn ${prefix}_has_$name;\n}\n\n";
 } # sub print_has_func
+
+# print an enum
+sub print_enum {
+	my ($out, $long, $short, $values) = @_;
+	my @vals = split ",", $values;
+	my $opt = $short // $long =~ s/-/_/gr;
+	print $out "enum ${prefix}_value_${opt} {\n";
+	print $out map { "\t${prefix}_value_${opt}_$_,\n" } @vals;
+	print $out map { "\t${prefix}_value_${long}_$_ = ${prefix}_value_${short}_$_,\n" } @vals if $long and $short;
+	print $out "};\n\n";
+} # sub print_enum
 
 # print assignment for type "string"
 sub string_print_assign {
@@ -220,6 +232,16 @@ sub callback_print_assign {
 	print $out $indent . "if(!($callback ($src)))\n";
 	print $out $indent . "\tdie_invalid_value($option, $src);\n"
 } # sub callback_print_assign
+
+# print assignment for type "enum"
+sub enum_print_assign {
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
+	my $name = $ref->{short} // $ref->{long} =~ s/-/_/gr;
+	my @vals = split ",", $ref->{values};
+	print $out $indent;
+	print $out join " ", map { "if (streq($src, ". cstring($_) . "))\n$indent\t$varname = ${prefix}_value_${name}_$_;\n${indent}else" } @vals;
+	print $out "\n$indent\tdie_invalid_value($option, $src);\n";
+} # sub enum_print_assign
 
 # print the C exit call for the "exit" property
 sub print_exit_call {
@@ -339,7 +361,15 @@ my $types = {
 		generate_get => 0,
 		print_assign => sub { callback_print_assign(@_) },
 		may_verify => 0,
-	}
+	},
+	enum => {
+		ctype => "int",
+		needs_val => "required",
+		generate_has => 1,
+		generate_get => 1,
+		print_assign => sub { enum_print_assign(@_) },
+		may_verify => 0,
+	},
 }; # my $types
 
 # verify the options and the config
@@ -368,6 +398,11 @@ sub verify_config {
 		$any_help_option = 1 if ($option->{type} eq "help");
 		$any_version_option = 1 if ($option->{type} eq "version");
 		$any_option_with_value = 1 if ($types->{$option->{type}}->{needs_val});
+		if ($option->{type} eq "enum") {
+			push @enums, $option;
+			die "option #$cnt: the type 'enum' has no values\n" unless $option->{values};
+			die "option #$cnt: invalid value '$_'\n" for grep {!/^[a-zA-Z0-9]+$/} split ",", $option->{values};
+		}
 		$cnt++;
 	}
 	$prefix = $config{prefix} if defined $config{prefix};
@@ -398,6 +433,8 @@ sub print_header {
 	print $out "#ifndef $iguard\n#define $iguard\n\n" if ($iguard);
 
 	print $out "#ifdef __cplusplus\nextern \"C\" {\n#endif /* __cplusplus */\n\n";
+
+	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
 
 	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
 	print $out "extern int ${prefix}_arg_count(void);\n";
