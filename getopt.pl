@@ -120,10 +120,13 @@ sub print_has_func {
 sub print_enum {
 	my ($out, $long, $short, $values) = @_;
 	my @vals = split ",", $values;
-	my $opt = $short // $long =~ s/-/_/gr;
+	my @longnames = split ",", ($long =~ s/-/_/gr);
+	my $opt = $short // shift @longnames;
 	print $out "enum ${prefix}_value_${opt} {\n";
 	print $out map { "\t${prefix}_value_${opt}_$_,\n" } @vals;
-	print $out map { "\t${prefix}_value_${long}_$_ = ${prefix}_value_${short}_$_,\n" } @vals if $long and $short;
+	for my $l (@longnames) {
+		print $out map { "\t${prefix}_value_${l}_$_ = ${prefix}_value_${opt}_$_,\n" } @vals;
+	}
 	print $out "};\n\n";
 } # sub print_enum
 
@@ -236,7 +239,7 @@ sub callback_print_assign {
 # print assignment for type "enum"
 sub enum_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
-	my $name = $ref->{short} // $ref->{long} =~ s/-/_/gr;
+	my $name = $ref->{short} // (split ",", $ref->{long})[0] =~ s/-/_/gr;
 	my @vals = split ",", $ref->{values};
 	print $out $indent;
 	print $out join " ", map { "if (streq($src, ". cstring($_) . "))\n$indent\t$varname = ${prefix}_value_${name}_$_;\n${indent}else" } @vals;
@@ -380,20 +383,20 @@ sub verify_config {
 	foreach my $option (@options) {
 		die "option #$cnt is no hash reference\n" unless (ref $option eq "HASH");
 		die "short option '-$option->{short}' not unique\n" if exists($short{$option->{short}});
-		die "long option '--$option->{long}' not unique\n" if exists($long{$option->{long}});
 		$short{$option->{short}} = 1 if defined $option->{short};
-		$long{$option->{long}} = 1 if defined $option->{long};
+		for (split ",", $option->{long}) {
+			die "long option '--$_' not unique\n" if exists($long{$_});
+			die "option #$cnt: invalid long name '$_'\n" unless $_ =~ /^[a-zA-Z][a-zA-Z0-9-]+$/;
+			$long{$_} = 1;
+		}
 		die "option #$cnt has no name\n" unless (defined $option->{short} or defined $option->{long});
 		die "option #$cnt has no type\n" unless (defined $option->{type});
 		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{type}});
 		die "option #$cnt: invalid short name " . $option->{short} unless (($option->{short} // "a") =~ /^[a-zA-Z]$/);
-		die "option #$cnt: invalid long name " . $option->{long} unless (($option->{long} // "ab") =~ /^[a-zA-Z][a-zA-Z0-9-]+$/);
 		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{verify} or $types->{$option->{type}}->{may_verify});
 		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{callback} or $option->{type} eq "callback");
 		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{callback} and $option->{type} eq "callback");
-		$option->{name} = $option->{short};
-		$option->{name} //= $option->{long};
-		$option->{name} =~ s/-/_/g;
+		$option->{name} = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
 		$any_version_option = 1 if ($option->{type} eq "version");
@@ -442,10 +445,14 @@ sub print_header {
 	for my $option (@options) {
 		my $typename = $option->{type};
 		my $type = $types->{$typename};
-		declare_has_func($out, $option->{short}, "extern") if ($type->{generate_has} and defined $option->{short});
-		declare_has_func($out, $option->{long}, "extern") if ($type->{generate_has} and defined $option->{long});
-		declare_get_func($out, $type->{ctype}, $option->{short}, "extern") if ($type->{generate_get} and defined $option->{short});
-		declare_get_func($out, $type->{ctype}, $option->{long}, "extern") if ($type->{generate_get} and defined $option->{long});
+		if ($type->{generate_has}) {
+			declare_has_func($out, $option->{short}, "extern") if defined $option->{short};
+			declare_has_func($out, $_, "extern") for split ",", $option->{long};
+		}
+		if ($type->{generate_get}) {
+			declare_get_func($out, $type->{ctype}, $option->{short}, "extern") if defined $option->{short};
+			declare_get_func($out, $type->{ctype}, $_, "extern") for split ",", $option->{long};
+		}
 	}
 
 	print $out "#ifdef __cplusplus\n} /* extern \"C\" */\n#endif /* __cplusplus */\n\n";
@@ -534,7 +541,7 @@ sub print_do_help_function {
 			print $out qq @"$indent@;
 			print $out qq @-$o->{short}@ if $o->{short};
 			print $out qq @ @ if ($o->{short} and $o->{long});
-			print $out qq @--$o->{long}@ if $o->{long};
+			print $out join " ", map { "--$_" } split ",", $o->{long};
 			print $out qq @ " @ . (cstring($arg)) . qq @ "@ if ($type->{needs_val} eq "required");
 			print $out qq @ " "("@ . (cstring($arg)) . qq @ ")" "@ if ($type->{needs_val} eq "optional");
 			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{description};
@@ -599,10 +606,14 @@ sub print_impl {
 		my $typename = $option->{type};
 		my $type = $types->{$typename};
 		declare_var ($out, $type->{ctype}, $option->{name}, $option->{init}, "static", $type->{generate_has});
-		print_get_func($out, $type->{ctype}, $option->{short}, "", $option->{name}) if ($type->{generate_get} and $option->{short});
-		print_get_func($out, $type->{ctype}, $option->{long}, "", $option->{name}) if ($type->{generate_get} and $option->{long});
-		print_has_func($out, $option->{short}, "", $option->{name}) if ($option->{short} and $type->{generate_has});
-		print_has_func($out, $option->{long}, "", $option->{name}) if ($option->{long} and $type->{generate_has});
+		if ($type->{generate_get}) {
+			print_get_func($out, $type->{ctype}, $option->{short}, "", $option->{name}) if $option->{short};
+			print_get_func($out, $type->{ctype}, $_, "", $option->{name}) for split ",", $option->{long};
+		}
+		if ($type->{generate_has}) {
+			print_has_func($out, $option->{short}, "", $option->{name}) if $option->{short};
+			print_has_func($out, $_, "", $option->{name}) for split ",", $option->{long};
+		}
 		print $out "\n";
 	}
 
@@ -671,25 +682,26 @@ sub print_impl {
 		my $type = $types->{$o->{type}};
 		my $assign_func = $type->{print_assign};
 		my $name = $o->{name};
+		my @longnames = split ",", $o->{long};
 		if ($type->{needs_val}) {
 			# --option=value, --option value
-			print $out "\t\ta = strstart(argv[i], \"--$o->{long}\");\n";
+			print $out join "\t\tif (!(a && (!*a || '=' == *a)))\n\t", map { "\t\ta = strstart(argv[i], \"--$_\");\n" } @longnames;
 			print $out "\t\tif (a && (!*a || '=' == *a)) {\n";
 			print $out "\t\t\tif (!*a) {\n";
 			print $out "\t\t\t\ta = argv[++i];\n";
-			print $out "\t\t\t\tif (!a)\n\t\t\t\t\tdie_no_value_long(\"--$o->{long}\");\n";
+			print $out "\t\t\t\tif (!a)\n\t\t\t\t\tdie_no_value_long(\"--$longnames[0]\");\n";
 			print $out "\t\t\t} else {\n";
 			print $out "\t\t\t\ta++;\n";
 			print $out "\t\t\t}\n";
 
 			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, "a");
-			print_verify($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
+			&$assign_func($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", $o, "a");
+			print_verify($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\tcontinue;\n\t\t}\n";
 		} else {
 			# --flag
-			print $out "\t\tif (streq(argv[i], \"--$o->{long}\")) {\n";
+			print $out "\t\tif (" . (join " || ", map { "streq(argv[i], \"--$_\")" } @longnames) . ") {\n";
 			print $out "\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
 			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
