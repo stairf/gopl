@@ -83,6 +83,13 @@ sub declare_var {
 	print $out ";\n\n";
 } # sub declare_var
 
+# print a macro to make one function an alias of another function
+sub print_alias {
+	my ($out, $fname, $name, $val) = @_;
+	print $out "#define ${prefix}_${fname}_$name ${prefix}_${fname}_$val\n\n";
+} #sub print_alias
+
+
 #declare the C "get" function
 sub declare_get_func {
 	my ($out, $ctype, $varname, $modifiers) = @_;
@@ -445,13 +452,15 @@ sub print_header {
 	for my $option (@options) {
 		my $typename = $option->{type};
 		my $type = $types->{$typename};
+		my @longnames = split ",", $option->{long} =~ s/-/_/gr;
+		my $name = $option->{short} // shift @longnames;
 		if ($type->{generate_has}) {
-			declare_has_func($out, $option->{short}, "extern") if defined $option->{short};
-			declare_has_func($out, $_, "extern") for split ",", $option->{long};
+			declare_has_func($out, $name, "extern");
+			print_alias($out, "has", $_, $name) for @longnames;
 		}
 		if ($type->{generate_get}) {
-			declare_get_func($out, $type->{ctype}, $option->{short}, "extern") if defined $option->{short};
-			declare_get_func($out, $type->{ctype}, $_, "extern") for split ",", $option->{long};
+			declare_get_func($out, $type->{ctype}, $name, "extern");
+			print_alias($out, "get", $_, $name) for @longnames;
 		}
 	}
 
@@ -605,15 +614,10 @@ sub print_impl {
 	for my $option (@options) {
 		my $typename = $option->{type};
 		my $type = $types->{$typename};
+		my $name = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
 		declare_var ($out, $type->{ctype}, $option->{name}, $option->{init}, "static", $type->{generate_has});
-		if ($type->{generate_get}) {
-			print_get_func($out, $type->{ctype}, $option->{short}, "", $option->{name}) if $option->{short};
-			print_get_func($out, $type->{ctype}, $_, "", $option->{name}) for split ",", $option->{long};
-		}
-		if ($type->{generate_has}) {
-			print_has_func($out, $option->{short}, "", $option->{name}) if $option->{short};
-			print_has_func($out, $_, "", $option->{name}) for split ",", $option->{long};
-		}
+		print_get_func($out, $type->{ctype}, $name, "", $option->{name}) if $type->{generate_get};
+		print_has_func($out, $name, "", $option->{name}) if $type->{generate_has};
 		print $out "\n";
 	}
 
