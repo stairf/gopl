@@ -77,7 +77,7 @@ sub declare_var {
 	return unless $ctype;
 	$modifiers .= " " if ($modifiers);
 	$varname =~ s/-/_/g;
-	print $out $modifiers . "int ${prefix}_has_$varname = 0;\n" if ($hasvar);
+	print $out $modifiers . "bool ${prefix}_has_$varname = false;\n" if ($hasvar);
 	print $out $modifiers . "$ctype ${prefix}_$varname";
 	print $out " = $val" if ($val);
 	print $out ";\n\n";
@@ -103,7 +103,7 @@ sub declare_has_func {
 	my ($out, $varname, $modifiers) = @_;
 	$varname =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "int ${prefix}_has_$varname (void);\n\n";
+	print $out $modifiers . "bool ${prefix}_has_$varname (void);\n\n";
 } # sub declare_has_func
 
 #print the C "get" function
@@ -120,7 +120,7 @@ sub print_has_func {
 	my ($out, $opt, $modifiers, $name) = @_;
 	$opt =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "int ${prefix}_has_$opt (void) {\n\treturn ${prefix}_has_$name;\n}\n\n";
+	print $out $modifiers . "bool ${prefix}_has_$opt (void) {\n\treturn ${prefix}_has_$name;\n}\n\n";
 } # sub print_has_func
 
 # print an enum
@@ -441,6 +441,7 @@ sub print_header {
 	open my $out,">$outfile" or die "$outfile: $!\n";
 	print $out "/*\n * $outfile\n * getopt.pl generated this header file\n */\n\n";
 	print $out "#ifndef $iguard\n#define $iguard\n\n" if ($iguard);
+	print $out "#include <stdbool.h>\n";
 
 	print $out "#ifdef __cplusplus\nextern \"C\" {\n#endif /* __cplusplus */\n\n";
 
@@ -698,7 +699,7 @@ sub print_impl {
 			print $out "\t\t\t\ta++;\n";
 			print $out "\t\t\t}\n";
 
-			print $out "\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
+			print $out "\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", $o, "a");
 			print_verify($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
@@ -706,7 +707,7 @@ sub print_impl {
 		} else {
 			# --flag
 			print $out "\t\tif (" . (join " || ", map { "streq(argv[i], \"--$_\")" } @longnames) . ") {\n";
-			print $out "\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
+			print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
 			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\tcontinue;\n\t\t}\n";
@@ -731,14 +732,14 @@ sub print_impl {
 			print $out "\t\t\t\t\tif (!a)\n";
 			print $out "\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n";
 			print $out "\t\t\t\t}\n";
-			print $out "\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
+			print $out "\t\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t","\"-$o->{short}\"", "${prefix}_$name", $o, "a");
 			print_verify($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\t\tbreak;\n";
 		} else {
 			# -f (flag)
-			print $out "\t\t\t\t${prefix}_has_$name = 1;\n" if ($type->{generate_has});
+			print $out "\t\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_" . $o->{name});
 			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\t\t\tcontinue;\n";
