@@ -184,6 +184,17 @@ sub llint_print_assign {
 	print $out $indent . "$varname = assign_l;\n";
 } # sub llint_print_assign
 
+# print assignment for type "llxint"
+sub llxint_print_assign {
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
+	print $out $indent . "char *assign_endptr;\n";
+	print $out $indent . "errno = 0;\n";
+	print $out $indent . "long long assign_l = strtoll($src, &assign_endptr, 16);\n";
+	print $out $indent . "if ((!*($src)) || errno || *assign_endptr)\n";
+	print $out $indent . "\tdie_invalid_value($option, $src);\n";
+	print $out $indent . "$varname = assign_l;\n";
+} # sub llxint_print_assign
+
 # print assignment for type "float"
 sub float_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -332,6 +343,14 @@ my $types = {
 		generate_has => 1, #true
 		generate_get => 1, #true
 		print_assign => sub { xint_print_assign(@_) },
+		may_verify => 1,
+	},
+	llxint => {
+		ctype => "long long",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { llxint_print_assign(@_) },
 		may_verify => 1,
 	},
 	float => {
