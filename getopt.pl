@@ -158,6 +158,21 @@ sub int_print_assign {
 	print $out $indent . "$varname = assign_l;\n";
 } # sub int_print_assign
 
+# print assignment for types "int" and "lint"
+sub xint_print_assign {
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
+	print $out $indent . "char *assign_endptr;\n";
+	print $out $indent . "errno = 0;\n";
+	print $out $indent . "long assign_l = strtol($src, &assign_endptr, 16);\n";
+	if ($ref->{type} eq "xint") {
+		print $out $indent . "if ((!*($src)) || errno || *assign_endptr || assign_l < INT_MIN || assign_l > INT_MAX)\n";
+	} else {
+		print $out $indent . "if ((!*($src)) || errno || *assign_endptr)\n";
+	}
+	print $out $indent . "\tdie_invalid_value($option, $src);\n";
+	print $out $indent . "$varname = assign_l;\n";
+} # sub xint_print_assign
+
 # print assignment for type "llint"
 sub llint_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -301,6 +316,22 @@ my $types = {
 		generate_has => 1, #true
 		generate_get => 1, #true
 		print_assign => sub { llint_print_assign(@_) },
+		may_verify => 1,
+	},
+	xint => {
+		ctype => "int",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { xint_print_assign(@_) },
+		may_verify => 1,
+	},
+	lxint => {
+		ctype => "long",
+		needs_val => "required",
+		generate_has => 1, #true
+		generate_get => 1, #true
+		print_assign => sub { xint_print_assign(@_) },
 		may_verify => 1,
 	},
 	float => {
