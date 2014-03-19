@@ -652,7 +652,7 @@ sub print_impl {
 	print $out "#include <limits.h>\n";
 	print $out "#include $_\n" for (@{$config{include}});
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
-	print $out "\n#define PRIVATE static __attribute__((unused))\n";
+	print $out "\n#ifdef __GNUC__\n#  define PRIVATE static __attribute__((unused))\n#else\n#  define PRIVATE static\n#endif /* __GNUC__ */\n\n";
 	print $out "#define STR(x) #x\n";
 	print $out "\n";
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
