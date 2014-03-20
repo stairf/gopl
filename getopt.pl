@@ -453,6 +453,7 @@ sub verify_config {
 		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{verify} or $types->{$option->{type}}->{may_verify});
 		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{callback} or $option->{type} eq "callback");
 		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{callback} and $option->{type} eq "callback");
+		die "option #$cnt: replace must be a hash reference\n" if defined $option->{replace} and ref $option->{replace} ne "HASH";
 		$option->{name} = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
@@ -738,6 +739,7 @@ sub print_impl {
 		my $assign_func = $type->{print_assign};
 		my $name = $o->{name};
 		my @longnames = split ",", $o->{long};
+		my %replace = %{ $o->{replace} // {} };
 		if ($type->{needs_val}) {
 			# --option=value, --option value
 			print $out join "\t\tif (!(a && (!*a || '=' == *a)))\n\t", map { "\t\ta = strstart(argv[i], \"--$_\");\n" } @longnames;
@@ -749,6 +751,7 @@ sub print_impl {
 			print $out "\t\t\t\ta++;\n";
 			print $out "\t\t\t}\n";
 
+			print $out "\t\t\t" . (join "\n\t\t\telse ", map { "if (streq(a, " . cstring($_) . "))\n\t\t\t\ta = " . cstring($replace{$_}) . ";"} keys %replace) . "\n" if %replace;
 			print $out "\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", $o, "a");
 			print_verify($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
@@ -773,6 +776,7 @@ sub print_impl {
 		my $type = $types->{$o->{type}};
 		my $name = $o->{name};
 		my $assign_func = $type->{print_assign};
+		my %replace = %{ $o->{replace} // {} };
 		print $out "\t\t\tif (argv[i][j] == '$o->{short}') {\n";
 		if ($type->{needs_val}) {
 			# -ovalue, -o value
@@ -782,6 +786,8 @@ sub print_impl {
 			print $out "\t\t\t\t\tif (!a)\n";
 			print $out "\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n";
 			print $out "\t\t\t\t}\n";
+
+			print $out "\t\t\t\t" . (join "\n\t\t\t\telse ", map { "if (streq(a, " . cstring($_) . "))\n\t\t\t\t\ta = " . cstring($replace{$_}) . ";"} keys %replace) . "\n" if %replace;
 			print $out "\t\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t\t\t","\"-$o->{short}\"", "${prefix}_$name", $o, "a");
 			print_verify($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
