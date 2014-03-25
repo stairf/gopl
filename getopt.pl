@@ -299,7 +299,7 @@ sub print_verify {
 my $types = {
 	string => {
 		ctype => "const char*",
-		needs_val => "required",
+		needs_val => "optional",
 		generate_has => 1, #true
 		generate_get => 1, #true
 		print_assign => sub { string_print_assign(@_) },
@@ -416,7 +416,7 @@ my $types = {
 		may_verify => 0,
 	},
 	callback => {
-		needs_val => "required",
+		needs_val => "optional",
 		generate_has => 0,
 		generate_get => 0,
 		print_assign => sub { callback_print_assign(@_) },
@@ -463,6 +463,11 @@ sub verify_config {
 			push @enums, $option;
 			die "option #$cnt: the type 'enum' has no values\n" unless $option->{values};
 			die "option #$cnt: invalid value '$_'\n" for grep {!/^[a-zA-Z0-9]+$/} split ",", $option->{values};
+		}
+		if ($option->{optional} eq "yes") {
+			my $type = $types->{$option->{type}};
+			die "option #$cnt takes no value\n" unless $type->{needs_val};
+			die "option #$cnt needs a default value\n" unless $type->{needs_val} eq "optional" or defined $option->{default};
 		}
 		$cnt++;
 	}
@@ -603,8 +608,8 @@ sub print_do_help_function {
 			print $out qq @-$o->{short}@ if $o->{short};
 			print $out qq @ @ if ($o->{short} and $o->{long});
 			print $out join " ", map { "--$_" } split ",", $o->{long};
-			print $out qq @ " @ . (cstring($arg)) . qq @ "@ if ($type->{needs_val} eq "required");
-			print $out qq @ " "("@ . (cstring($arg)) . qq @ ")" "@ if ($type->{needs_val} eq "optional");
+			print $out qq @ " @ . (cstring($arg)) . qq @ "@ if ($type->{needs_val} and $o->{optional} ne "yes");
+			print $out qq @ " "[" @ . (cstring($arg)) . qq @ "]" "@ if ($o->{optional} eq "yes");
 			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{description};
 			print $out qq @\\n"\n\t\t@;
 		}
@@ -745,8 +750,12 @@ sub print_impl {
 			print $out join "\t\tif (!(a && (!*a || '=' == *a)))\n\t", map { "\t\ta = strstart(argv[i], \"--$_\");\n" } @longnames;
 			print $out "\t\tif (a && (!*a || '=' == *a)) {\n";
 			print $out "\t\t\tif (!*a) {\n";
-			print $out "\t\t\t\ta = argv[++i];\n";
-			print $out "\t\t\t\tif (!a)\n\t\t\t\t\tdie_no_value_long(\"--$longnames[0]\");\n";
+			if ($o->{optional} eq "yes") {
+				print $out "\t\t\t\ta = " . (defined $o->{default} ? cstring($o->{default}) : "NULL") . ";\n";
+			} else {
+				print $out "\t\t\t\ta = argv[++i];\n";
+				print $out "\t\t\t\tif (!a)\n\t\t\t\t\tdie_no_value_long(\"--$longnames[0]\");\n";
+			}
 			print $out "\t\t\t} else {\n";
 			print $out "\t\t\t\ta++;\n";
 			print $out "\t\t\t}\n";
@@ -782,9 +791,12 @@ sub print_impl {
 			# -ovalue, -o value
 			print $out "\t\t\t\ta = argv[i] + j + 1;\n";
 			print $out "\t\t\t\tif (!*a) {\n";
-			print $out "\t\t\t\t\ta = argv[++i];\n";
-			print $out "\t\t\t\t\tif (!a)\n";
-			print $out "\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n";
+			if ($o->{optional} eq "yes") {
+				print $out "\t\t\t\t\ta = " . (defined $o->{default} ? cstring($o->{default}) : "NULL") . ";\n";
+			} else {
+				print $out "\t\t\t\t\ta = argv[++i];\n";
+				print $out "\t\t\t\t\tif (!a)\n\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n";
+			}
 			print $out "\t\t\t\t}\n";
 
 			print $out "\t\t\t\t" . (join "\n\t\t\t\telse ", map { "if (streq(a, " . cstring($_) . "))\n\t\t\t\t\ta = " . cstring($replace{$_}) . ";"} keys %replace) . "\n" if %replace;
