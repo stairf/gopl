@@ -656,6 +656,7 @@ sub print_impl {
 	print $out "#include <string.h>\n";
 	print $out "#include <errno.h>\n";
 	print $out "#include <limits.h>\n";
+	print $out "#include <stdbool.h>\n";
 	print $out "#include $_\n" for (@{$config{include}});
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
 	print $out "\n#ifdef __GNUC__\n#  define PRIVATE static __attribute__((unused))\n#else\n#  define PRIVATE static\n#endif /* __GNUC__ */\n\n";
