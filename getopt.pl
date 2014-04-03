@@ -37,7 +37,7 @@ my $iguard = "";
 my $prefix = "opt";
 my $any_help_option;
 my $any_version_option;
-my $any_option_with_value;
+my $any_short_option = 0;
 my @enums;
 
 
@@ -458,7 +458,7 @@ sub verify_config {
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
 		$any_version_option = 1 if ($option->{type} eq "version");
-		$any_option_with_value = 1 if ($types->{$option->{type}}->{needs_val});
+		$any_short_option = 1 if defined $option->{short};
 		if ($option->{type} eq "enum") {
 			push @enums, $option;
 			die "option #$cnt: the type 'enum' has no values\n" unless $option->{values};
@@ -646,6 +646,67 @@ sub print_do_version_function {
 	print $out "}\n\n";
 } # sub print_do_version_function
 
+my $trie_cnt = 0;
+# insert a value into a trie
+sub trie_insert {
+	my ($node,$key,$val) = @_;
+	# empty node, insert value here
+	if (not $node->{entry}->{val} and not defined $node->{children}) {
+		$node->{entry} = { key => $key, val => $val };
+		return;
+	}
+	# move down old value
+	if (%{ $node->{entry} } and @{ $node->{entry}->{key} }) {
+		my $k = shift @{ $node->{entry}->{key} };
+		$node->{children}->{$k} //= { id => ++$trie_cnt };
+		trie_insert($node->{children}->{$k}, $node->{entry}->{key}, $node->{entry}->{val});
+		$node->{entry} = {};
+	}
+	# insert new value
+	if (@{ $key }) {
+		my $k = shift @{ $key };
+		$node->{children}->{$k} //= { id => ++$trie_cnt };
+		trie_insert($node->{children}->{$k}, $key, $val);
+	} else {
+		$node->{entry} = { key => $key, val => $val };
+	}
+} # sub trie_insert
+
+# create the options trie
+sub trie_create {
+	my $root = { id => 0 };
+	for my $o (grep { defined $_->{long} } @options) {
+		trie_insert($root, [split //, "$_"], $o) for split ",", $o->{long};
+	}
+	return $root;
+} # sub trie_create
+
+# generate trie DFA code
+sub trie_code {
+	my ($out, $path, $node) = @_;
+	my $pathlen = scalar split //, $path;
+	print $out "state_$node->{id}:; /* $path */\n";
+	print $out "\t". (join "\telse ", map { "if (argv[i][$pathlen] == '$_')\n\t\tgoto state_$node->{children}->{$_}->{id};\n" } sort keys %{ $node->{children} } ) if %{ $node->{children} };
+	if (%{ $node->{entry} }) {
+		my $o = $node->{entry}->{val};
+		print $out "\t/* option: $path" . (join "", @{ $node->{entry}->{key} }) . " */\n";
+		if (@{ $node->{entry}->{key} }) {
+			print $out "\ta = skip_unique_option_name(argv[i] + $pathlen, \"$path" . (join "", @{ $node->{entry}->{key} }) . "\" + $pathlen);\n";
+			print $out "\tif (a == ${prefix}_ERR_PTR)\n\t\tgoto unknown_long;\n";
+		} else {
+			print $out "\ta = argv[i] + $pathlen;\n";
+			print $out "\tif (*a != '\\0' && *a != '=')\n\t\tgoto unknown_long;\n";
+			print $out "\tif (*a == '=')\n\t\ta++;\n\telse if (!*a)\n\t\ta = NULL;\n";
+		}
+		print $out "\toption_name = \"$path" . (join "", @{ $node->{entry}->{key} }) . "\";\n";
+		print $out "\tuse_short_name = false;\n" if $any_short_option;
+		print $out "\tgoto state_assign_$o->{name};\n";
+	} else {
+		print $out "\tgoto unknown_long;\n";
+	}
+	trie_code($out, $path . $_, $node->{children}->{$_}) for sort keys %{ $node->{children} };
+} # sub trie_code
+
 # generate the c implementation file
 sub print_impl {
 	my ($outfile) = @_;
@@ -661,6 +722,7 @@ sub print_impl {
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
 	print $out "\n#ifdef __GNUC__\n#  define PRIVATE static __attribute__((unused))\n#else\n#  define PRIVATE static\n#endif /* __GNUC__ */\n\n";
 	print $out "#define STR(x) #x\n";
+	print $out "#define ${prefix}_ERR_PTR ((void*)-1)\n";
 	print $out "\n";
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
 	print $out "static int first_arg;\n\n";
@@ -698,24 +760,12 @@ sub print_impl {
 	print $out "\texit(EXIT_FAILURE);\n" if ($config{unknown} ne "ignore");
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_no_value_long(const char *option) {\n@;
+	print $out qq @PRIVATE void die_no_value(const char *option) {\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
 	print $out "\texit(EXIT_FAILURE);\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_no_value_short(const char option) {\n@;
-	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
-	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", opt);\n@;
-	print $out "\texit(EXIT_FAILURE);\n";
-	print $out "}\n\n";
-
 	print $out "PRIVATE int streq(const char *a, const char *b) {\n\treturn !strcmp(a,b);\n";
-	print $out "}\n\n";
-
-	print $out "PRIVATE const char *strstart(const char *string, const char *start) {\n";
-	print $out "\tsize_t length = strlen(start);\n";
-	print $out "\tif (!strncmp(string, start, length))\n\t\treturn string + length;\n";
-	print $out "\treturn NULL;\n";
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value) {\n@;
@@ -723,103 +773,83 @@ sub print_impl {
 	print $out "\texit(EXIT_FAILURE);\n";
 	print $out "}\n\n";
 
+	print $out "PRIVATE const char *skip_unique_option_name(const char *word, const char *name) {\n";
+	print $out "\twhile (*name) {\n";
+	print $out "\t\tif (*word == '\\0' || *word == '=')\n\t\t\tbreak;\n";
+	print $out "\t\tif (*word != *name)\n\t\t\treturn ${prefix}_ERR_PTR;\n";
+	print $out "\t\tword++;\n\t\tname++;\n";
+	print $out "\t}\n\treturn (*word == '=') ? word + 1 : (*word == '\\0') ? NULL : ${prefix}_ERR_PTR;\n";
+	print $out "}\n\n";
+
 	# print opt_parse / ${prefix}_parse
 	print $out "void ${prefix}_parse(int argc, const char **argv) {\n";
 	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
-	print $out "\tconst char *a;\n" if ($any_option_with_value);
-	print $out "\tfor (int i = 1; i < argc; ++i) {\n";
+	print $out "\tconst char *a;\n\tconst char *option_name;\n";
+	print $out "\tint i = 0;\n\tint j = 0;\n";
+	print $out "\tbool use_short_name = true;\n" if $any_short_option;
 
-	# argv[i] is argument? ->break
-	print $out "\t\tif (argv[i][0] != '-' || streq(argv[i], \"-\")) {\n";
-	print $out "\t\t\tfirst_arg = i;\n";
-	print $out "\t\t\tgoto check_args;\n";
-	print $out "\t\t}\n";
-	print $out "\t\tif (streq(argv[i], \"--\")) {\n";
-	print $out "\t\t\tfirst_arg = i + 1;\n";
-	print $out "\t\t\tgoto check_args;\n";
-	print $out "\t\t}\n";
-
-	#search long options
-	for my $o (grep { defined $_->{long} } @options) {
+	print $out "next_word:\n\ti++;\n";
+	print $out "\tif (i == argc || argv[i][0] != '-') {\n\t\tfirst_arg = i;\n\t\tgoto check_args;\n\t}\n";
+	print $out "\telse if (argv[i][1] == '\\0')\n\t\tgoto arg_dash;\n";
+	print $out "\telse if (argv[i][1] != '-')\n\t\tgoto short_name;\n";
+	print $out "\telse if (argv[i][1] == '-' && argv[i][2] =='\\0')\n\t\tgoto arg_ddash;\n";
+	print $out "\tgoto state_0;\n";
+	print $out "unknown_long:\n\twarn_unknown_long(argv[i]);\n\tgoto next_word;\n";
+	# variable assignment states
+	for my $o (@options) {
 		my $type = $types->{$o->{type}};
 		my $assign_func = $type->{print_assign};
 		my $name = $o->{name};
 		my @longnames = split ",", $o->{long};
 		my %replace = %{ $o->{replace} // {} };
+		print $out "state_assign_$name:\n\t{\n";
 		if ($type->{needs_val}) {
-			# --option=value, --option value
-			print $out join "\t\tif (!(a && (!*a || '=' == *a)))\n\t", map { "\t\ta = strstart(argv[i], \"--$_\");\n" } @longnames;
-			print $out "\t\tif (a && (!*a || '=' == *a)) {\n";
-			print $out "\t\t\tif (!*a) {\n";
+			# --option=value, --option value, -ovalue, -o value
+			print $out "\t\tif (!a) {\n";
 			if ($o->{optional} eq "yes") {
-				print $out "\t\t\t\ta = " . (defined $o->{default} ? cstring($o->{default}) : "NULL") . ";\n";
+				print $out "\t\t\ta = " . (defined $o->{default} ? cstring($o->{default}) : "NULL") . ";\n";
 			} else {
-				print $out "\t\t\t\ta = argv[++i];\n";
-				print $out "\t\t\t\tif (!a)\n\t\t\t\t\tdie_no_value_long(\"--$longnames[0]\");\n";
+				print $out "\t\t\ta = argv[++i];\n";
+				print $out "\t\t\tif (!a)\n\t\t\t\tdie_no_value(option_name);\n";
 			}
-			print $out "\t\t\t} else {\n";
-			print $out "\t\t\t\ta++;\n";
-			print $out "\t\t\t}\n";
+			print $out "\t\t}\n";
 
-			print $out "\t\t\t" . (join "\n\t\t\telse ", map { "if (streq(a, " . cstring($_) . "))\n\t\t\t\ta = " . cstring($replace{$_}) . ";"} keys %replace) . "\n" if %replace;
-			print $out "\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", $o, "a");
-			print_verify($out, "\t\t\t", "\"--$longnames[0]\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
-			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\tcontinue;\n\t\t}\n";
-		} else {
-			# --flag
-			print $out "\t\tif (" . (join " || ", map { "streq(argv[i], \"--$_\")" } @longnames) . ") {\n";
+			print $out "\t\t" . (join "\n\t\telse ", map { "if (streq(a, " . cstring($_) . "))\n\t\t\ta = " . cstring($replace{$_}) . ";" } keys %replace) . "\n" if %replace;
 			print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
-			print_exit_call($out, "\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\tcontinue;\n\t\t}\n";
-		}
-	}
-	print $out "\t\tif (argv[i][0] == '-' && argv[i][1] == '-') {\n";
-	print $out "\t\t\twarn_unknown_long(argv[i]);\n\t\t\tcontinue;\n";
-	print $out "\t\t}\n";
-	# search short options
-	print $out "\t\t/* argv[i][0] == '-' && argv[i][1] != '-' */\n";
-	print $out "\t\tfor (int j = 1; argv[i][j]; ++j) {\n";
-	for my $o (grep { defined $_->{short} } @options) {
-		my $type = $types->{$o->{type}};
-		my $name = $o->{name};
-		my $assign_func = $type->{print_assign};
-		my %replace = %{ $o->{replace} // {} };
-		print $out "\t\t\tif (argv[i][j] == '$o->{short}') {\n";
-		if ($type->{needs_val}) {
-			# -ovalue, -o value
-			print $out "\t\t\t\ta = argv[i] + j + 1;\n";
-			print $out "\t\t\t\tif (!*a) {\n";
-			if ($o->{optional} eq "yes") {
-				print $out "\t\t\t\t\ta = " . (defined $o->{default} ? cstring($o->{default}) : "NULL") . ";\n";
-			} else {
-				print $out "\t\t\t\t\ta = argv[++i];\n";
-				print $out "\t\t\t\t\tif (!a)\n\t\t\t\t\t\tdie_no_value_short('$o->{short}');\n";
-			}
-			print $out "\t\t\t\t}\n";
-
-			print $out "\t\t\t\t" . (join "\n\t\t\t\telse ", map { "if (streq(a, " . cstring($_) . "))\n\t\t\t\t\ta = " . cstring($replace{$_}) . ";"} keys %replace) . "\n" if %replace;
-			print $out "\t\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t\t","\"-$o->{short}\"", "${prefix}_$name", $o, "a");
-			print_verify($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
-			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\t\tbreak;\n";
+			&$assign_func($out, "\t\t", "option_name", "${prefix}_$name", $o, "a");
+			print_verify($out, "\t\t", "option_name", "${prefix}_$name", "a", $o->{verify}) if $o->{verify};
+			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
-			# -f (flag)
-			print $out "\t\t\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t\t\t", "\"-$o->{short}\"", "${prefix}_" . $o->{name});
-			print_exit_call($out, "\t\t\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\t\t\tcontinue;\n";
+			# --flag, -f
+			print $out "\t{\n\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
+			&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
+			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+			print $out "\t\tif (use_short_name)\n\t\t\tgoto next_char;\n\t\telse\n\t" if $o->{short};
+			print $out "\t\tgoto next_word;\n\t}\n";
 		}
-		print $out "\t\t\t}\n";
 	}
-	print $out "\t\t\twarn_unknown_short(argv[i][j]);\n";
-	print $out "\t\t} /* for (j) */\n";
-	print $out "\t} /* for (i) */\n";
-	print $out "\tfirst_arg = argc;\n";
 
+	# long names
+	my $trie = trie_create();
+	trie_code($out, "--", $trie);
+
+	# short names
+	print $out "short_name:\n";
+	print $out "\tuse_short_name = true;\n" if $any_short_option;
+	print $out "\tj = 0;\n";
+	print $out "next_char:\n" if $any_short_option;
+	print $out "\tj++;\n";
+	print $out "\tif (argv[i][j] == '\\0')\n\t\tgoto next_word;\n";
+	print $out "\ta = &argv[i][j+1];\n";
+	print $out "\tif (!*a)\n\t\ta = NULL;\n";
+	print $out "\t" . (join " else ", map { "if (argv[i][j] == '$_->{short}') {\n\t\toption_name = \"-$_->{short}\";\n\t\tgoto state_assign_$_->{name};\n\t}" } grep { defined $_->{short} } @options) . "\n" if $any_short_option;
+	print $out "\twarn_unknown_short(argv[i][j]);\n";
+	print $out "\tgoto next_word;\n";
+
+	# special arguments: - and --
+	print $out "arg_ddash:\n\ti++;\n";
+	print $out "arg_dash:\n\tfirst_arg = i;\n";
 	print $out "check_args:\n";
 	my $minargs = get_args_min_count();
 	my $maxargs = get_args_max_count();
