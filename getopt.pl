@@ -724,6 +724,7 @@ sub print_impl {
 	print $out "#define STR(x) #x\n";
 	print $out "#define ${prefix}_ERR_PTR ((void*)-1)\n";
 	print $out "\n";
+	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
 	print $out "static int first_arg;\n\n";
 
