@@ -824,7 +824,8 @@ sub print_impl {
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
 			# --flag, -f
-			print $out "\t{\n\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
+			print $out "\t\tif (a)\n\t\t\tgoto unknown_long;\n";
+			print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\tif (use_short_name)\n\t\t\tgoto next_char;\n\t\telse\n\t" if $o->{short};
