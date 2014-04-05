@@ -273,9 +273,9 @@ sub callback_print_assign {
 sub enum_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
 	my $name = $ref->{short} // (split ",", $ref->{long})[0] =~ s/-/_/gr;
-	my @vals = map { s/-/_/gr } split ",", $ref->{values};
+	my @vals = split ",", $ref->{values};
 	print $out $indent;
-	print $out join " ", map { "if (streq($src, ". cstring($_) . "))\n$indent\t$varname = ${prefix}_value_${name}_$_;\n${indent}else" } @vals;
+	print $out join " ", map { "if (streq($src, ". cstring($_) . "))\n$indent\t$varname = ${prefix}_value_${name}_" . (s/-/_/gr) . ";\n${indent}else" } @vals;
 	print $out "\n$indent\tdie_invalid_value($option, $src);\n";
 } # sub enum_print_assign
 
