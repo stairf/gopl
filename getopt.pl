@@ -577,7 +577,8 @@ sub print_do_help_function {
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
-	print $out qq @\tif (die_usage) exit(EXIT_FAILURE);\n@;
+	print $out "\tif (die_usage)\n";
+	print_exit_call($out,"\t\t",$config{die_status} // "FAILURE");
 
 	if ($help{description}) {
 		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
@@ -752,18 +753,18 @@ sub print_impl {
 
 	print $out qq @PRIVATE void warn_unknown_long(const char *option) {\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}).qq @ "\\n", option);\n@;
-	print $out "\texit(EXIT_FAILURE);\n" if ($config{unknown} ne "ignore");
+	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if $config{unknown} ne "ignore";
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void warn_unknown_short(const char option) {\n@;
 	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}) . qq @ "\\n", opt);\n@;
-	print $out "\texit(EXIT_FAILURE);\n" if ($config{unknown} ne "ignore");
+	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if $config{unknown} ne "ignore";
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void die_no_value(const char *option) {\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
-	print $out "\texit(EXIT_FAILURE);\n";
+	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
 	print $out "}\n\n";
 
 	print $out "PRIVATE int streq(const char *a, const char *b) {\n\treturn !strcmp(a,b);\n";
@@ -771,7 +772,7 @@ sub print_impl {
 
 	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value) {\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_bad_val}) . qq @ "\\n", option, value);\n@;
-	print $out "\texit(EXIT_FAILURE);\n";
+	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
 	print $out "}\n\n";
 
 	print $out "PRIVATE const char *skip_unique_option_name(const char *word, const char *name) {\n";
