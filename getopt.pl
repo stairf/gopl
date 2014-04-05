@@ -449,7 +449,7 @@ sub verify_config {
 		die "option #$cnt has no name\n" unless (defined $option->{short} or defined $option->{long});
 		die "option #$cnt has no type\n" unless (defined $option->{type});
 		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{type}});
-		die "option #$cnt: invalid short name " . $option->{short} unless (($option->{short} // "a") =~ /^[a-zA-Z]$/);
+		die "option #$cnt: invalid short name " . $option->{short} unless (($option->{short} // "a") =~ /^[a-zA-Z0-9]$/);
 		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{verify} or $types->{$option->{type}}->{may_verify});
 		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{callback} or $option->{type} eq "callback");
 		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{callback} and $option->{type} eq "callback");
