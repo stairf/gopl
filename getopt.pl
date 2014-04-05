@@ -126,7 +126,7 @@ sub print_has_func {
 # print an enum
 sub print_enum {
 	my ($out, $long, $short, $values) = @_;
-	my @vals = split ",", $values;
+	my @vals = map { s/-/_/gr } split ",", $values;
 	my @longnames = split ",", ($long =~ s/-/_/gr);
 	my $opt = $short // shift @longnames;
 	print $out "enum ${prefix}_value_${opt} {\n";
@@ -273,7 +273,7 @@ sub callback_print_assign {
 sub enum_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
 	my $name = $ref->{short} // (split ",", $ref->{long})[0] =~ s/-/_/gr;
-	my @vals = split ",", $ref->{values};
+	my @vals = map { s/-/_/gr } split ",", $ref->{values};
 	print $out $indent;
 	print $out join " ", map { "if (streq($src, ". cstring($_) . "))\n$indent\t$varname = ${prefix}_value_${name}_$_;\n${indent}else" } @vals;
 	print $out "\n$indent\tdie_invalid_value($option, $src);\n";
@@ -462,7 +462,7 @@ sub verify_config {
 		if ($option->{type} eq "enum") {
 			push @enums, $option;
 			die "option #$cnt: the type 'enum' has no values\n" unless $option->{values};
-			die "option #$cnt: invalid value '$_'\n" for grep {!/^[a-zA-Z0-9]+$/} split ",", $option->{values};
+			die "option #$cnt: invalid value '$_'\n" for grep {!/^[a-zA-Z0-9-]+$/} split ",", $option->{values};
 		}
 		if ($option->{optional} eq "yes") {
 			my $type = $types->{$option->{type}};
