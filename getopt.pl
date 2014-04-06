@@ -483,7 +483,7 @@ sub verify_config {
 	}
 
 	die "\$config{indexcheck} must be 'yes' or 'no'\n" if (defined $config{indexcheck} and !is_one_of($config{indexcheck},'yes','no'));
-	die "\$config{unknown} must be 'die' or 'ignore'\n" if (defined $config{unknown} and !is_one_of($config{unknown},'die','ignore'));
+	die "\$config{unknown} must be 'die','warn' or 'ignore'\n" if (defined $config{unknown} and !is_one_of($config{unknown},'die','warn','ignore'));
 	die "\$config{include} must be an array reference\n" if (defined $config{include} and ref $config{include} ne "ARRAY");
 
 	die "\$help{show_args} must be 'yes' or 'no'\n" if (defined $help{show_args} and !is_one_of($help{show_args},'yes','no'));
@@ -751,15 +751,9 @@ sub print_impl {
 	print $out "\n\treturn save_argv[first_arg + index];\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void warn_unknown_long(const char *option) {\n@;
-	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}).qq @ "\\n", option);\n@;
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if $config{unknown} ne "ignore";
-	print $out "}\n\n";
-
-	print $out qq @PRIVATE void warn_unknown_short(const char option) {\n@;
-	print $out qq @\tchar opt[3] = {'-', option, '\\0'};\n@;
-	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_unknown}) . qq @ "\\n", opt);\n@;
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if $config{unknown} ne "ignore";
+	print $out "PRIVATE void warn_unknown(const char *option) {\n";
+	print $out "\tfprintf(stderr, " . cstring($lang{opt_unknown}) . " \"\\n\", option);\n";
+	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if ($config{unknown} // "die") eq "die";
 	print $out "}\n\n";
 
 	print $out qq @PRIVATE void die_no_value(const char *option) {\n@;
@@ -796,7 +790,9 @@ sub print_impl {
 	print $out "\telse if (argv[i][1] != '-')\n\t\tgoto short_name;\n";
 	print $out "\telse if (argv[i][1] == '-' && argv[i][2] =='\\0')\n\t\tgoto arg_ddash;\n";
 	print $out "\tgoto state_0;\n";
-	print $out "unknown_long:\n\twarn_unknown_long(argv[i]);\n\tgoto next_word;\n";
+	print $out "unknown_long:\n";
+	print $out "\twarn_unknown(argv[i]);\n" if $config{unknown} ne "ignore";
+	print $out "\tgoto next_word;\n";
 	# variable assignment states
 	for my $o (@options) {
 		my $type = $types->{$o->{type}};
@@ -847,7 +843,7 @@ sub print_impl {
 	print $out "\ta = &argv[i][j+1];\n";
 	print $out "\tif (!*a)\n\t\ta = NULL;\n";
 	print $out "\t" . (join " else ", map { "if (argv[i][j] == '$_->{short}') {\n\t\toption_name = \"-$_->{short}\";\n\t\tgoto state_assign_$_->{name};\n\t}" } grep { defined $_->{short} } @options) . "\n" if $any_short_option;
-	print $out "\twarn_unknown_short(argv[i][j]);\n";
+	print $out "\t{\n\t\tchar short_name[] = { '-', argv[i][j], '\\0' };\n\t\twarn_unknown(short_name);\n\t}\n" if $config{unknown} ne "ignore";
 	print $out "\tgoto next_word;\n";
 
 	# special arguments: - and --
