@@ -443,7 +443,7 @@ sub verify_config {
 		$short{$option->{short}} = 1 if defined $option->{short};
 		for (split ",", $option->{long}) {
 			die "long option '--$_' not unique\n" if exists($long{$_});
-			die "option #$cnt: invalid long name '$_'\n" unless $_ =~ /^[a-zA-Z][a-zA-Z0-9-]+$/;
+			die "option #$cnt: invalid long name '$_'\n" unless $_ =~ /^[a-zA-Z0-9][a-zA-Z0-9-]+$/;
 			$long{$_} = 1;
 		}
 		die "option #$cnt has no name\n" unless (defined $option->{short} or defined $option->{long});
