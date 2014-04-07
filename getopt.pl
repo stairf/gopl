@@ -783,6 +783,7 @@ sub print_impl {
 	print $out "\tconst char *a;\n\tconst char *option_name;\n";
 	print $out "\tint i = 0;\n\tint j = 0;\n";
 	print $out "\tbool use_short_name = true;\n" if $any_short_option;
+	print $out "\tchar short_option_name[3] = { '-', '\\0', '\\0' };\n";
 
 	print $out "next_word:\n\ti++;\n";
 	print $out "\tif (i == argc || argv[i][0] != '-') {\n\t\tfirst_arg = i;\n\t\tgoto check_args;\n\t}\n";
@@ -841,9 +842,11 @@ sub print_impl {
 	print $out "\tj++;\n";
 	print $out "\tif (argv[i][j] == '\\0')\n\t\tgoto next_word;\n";
 	print $out "\ta = &argv[i][j+1];\n";
+	print $out "\tshort_option_name[1] = argv[i][j];\n";
+	print $out "\toption_name = short_option_name;\n";
 	print $out "\tif (!*a)\n\t\ta = NULL;\n";
-	print $out "\t" . (join " else ", map { "if (argv[i][j] == '$_->{short}') {\n\t\toption_name = \"-$_->{short}\";\n\t\tgoto state_assign_$_->{name};\n\t}" } grep { defined $_->{short} } @options) . "\n" if $any_short_option;
-	print $out "\t{\n\t\tchar short_name[] = { '-', argv[i][j], '\\0' };\n\t\twarn_unknown(short_name);\n\t}\n" if $config{unknown} ne "ignore";
+	print $out "\t" . (join "\telse ", map { "if (argv[i][j] == '$_->{short}')\n\t\tgoto state_assign_$_->{name};\n" } grep { defined $_->{short} } @options) if $any_short_option;
+	print $out "\twarn_unknown(option_name);\n" if $config{unknown} ne "ignore";
 	print $out "\tgoto next_word;\n";
 
 	# special arguments: - and --
