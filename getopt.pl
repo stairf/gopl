@@ -24,10 +24,8 @@ our @args = ( { name => "arguments", count => "*" } );
 #default language
 our %lang = (
 	help_usage => "usage: %s [options] ",
-	help_desc => "DESCRIPTION:",
 	help_args => "ARGUMENTS:",
 	help_options => "OPTIONS:",
-	help_info => "INFO:",
 	opt_unknown => "unknown option `%s'",
 	opt_no_val => "the option `%s' needs a value",
 	opt_bad_val => "invalid value %s `%s'",
@@ -64,6 +62,32 @@ sub cstring {
 	$in =~ s/\f/\\f/g;
 	return '"' . $in . '"';
 } # sub cstring
+
+# wrap a text
+sub wrap {
+	my ($prefix, $indent, $text, $pagewidth) = @_;
+
+	my $res = "";
+	my $line = $prefix;
+	my @paragraphs = split /\n\n/, $text;
+	for my $p (@paragraphs) {
+		my @words = split /[ \n\t]+/, $p;
+		for my $w (@words) {
+			$restlen = $pagewidth - scalar (split //, $line);
+			if (scalar (split //, $w) >= $restlen) {
+				$res .= $line . "\n";
+				$line = $indent;
+			} elsif ($line ne $indent and $line ne $prefix) {
+				$line .= " ";
+			}
+			$line .= $w;
+		}
+		$res .= $line;
+		$line = $indent;
+		$res .= "\n\n";
+	}
+	return $res;
+} # sub wrap
 
 # check if a string is contained in an array
 sub is_one_of {
@@ -571,7 +595,9 @@ sub print_do_help_function {
 	my ($out) = @_;
 	my $stream = $help{output} // "stdout";
 	my $indent = $help{indent} // " " x2;
-	my $indent2 = $help{indent2} // " " x4;
+	my $indent2 = $help{indent2} // " " x 25;
+	my $colwidth = scalar (split //, $indent2);
+	my $pagewidth = $config{pagewidth} // 80;
 	print $out "PRIVATE void do_help(int die_usage) {\n";
 	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{progname} // "save_argv[0]").qq@);\n@;
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
@@ -580,20 +606,14 @@ sub print_do_help_function {
 	print $out "\tif (die_usage)\n";
 	print_exit_call($out,"\t\t",$config{die_status} // "FAILURE");
 
-	if ($help{description}) {
-		print $out qq @\tfputs(@ . cstring($lang{help_desc}) . qq @ "\\n", $stream);\n@;
-		print $out qq @\tfputs(@;
-		for my $token (split "\n", $help{description}) {
-			print $out cstring($indent . $token . "\n") . "\n\t\t";
-		}
-		print $out qq @"\\n", $stream);\n@
-	}
+	print $out "\tfputs(" . (join "\n\t\t", map { cstring("$_\n") } split "\n", wrap("", $indent, $help{description}, $pagewidth)) . "\n\t\t\"\\n\", $stream);\n" if $help{description};
 	if ($help{show_args} eq "yes") {
 		print $out qq @\tfputs(@ . cstring($lang{help_args}) . qq @ "\\n", $stream);\n@;
 		print $out qq @\tfputs(@;
 		for my $a (@args) {
-			print $out cstring($indent . $a->{name} . "\n") . "\n\t\t";
-			print $out cstring($indent2 . $a->{description} . "\n") . "\n\t\t" if defined $a->{description};
+			my $d = sprintf "%-*s ", $colwidth - 1, $indent . $a->{name};
+			$d = wrap($d, $indent2, $a->{description}, $pagewidth) . "\n" if defined $a->{description};
+			print $out (join "\n\t\t", map { cstring($_ . "\n") } split "\n", $d) . "\n\t\t";
 		}
 		print $out qq @"\\n", $stream);\n@;
 	}
@@ -605,25 +625,19 @@ sub print_do_help_function {
 			$arg //= "{" . $o->{values} =~ s/,/|/gr . "}" if $o->{values};
 			$arg //= "ARG";
 			my $type = $types->{$o->{type}};
-			print $out qq @"$indent@;
-			print $out qq @-$o->{short}@ if $o->{short};
-			print $out qq @ @ if ($o->{short} and $o->{long});
-			print $out join " ", map { "--$_" } split ",", $o->{long};
-			print $out qq @ " @ . (cstring($arg)) . qq @ "@ if ($type->{needs_val} and $o->{optional} ne "yes");
-			print $out qq @ " "[" @ . (cstring($arg)) . qq @ "]" "@ if ($o->{optional} eq "yes");
-			print $out qq @\\n$indent2"  @ . cstring($o->{description}) . qq @ "@if $o->{description};
-			print $out qq @\\n"\n\t\t@;
+			my $d = $indent;
+			$d .= "-$o->{short}" if $o->{short};
+			$d .= " " if $o->{short} and $o->{long};
+			$d .= join "", map { "--$_" } split ",", $o->{long};
+			$d .= " " . $arg if $type->{needs_val} and $o->{optional} ne "yes";
+			$d .= " [" . $arg . "]" if $o->{optional} eq "yes";
+			$d = sprintf "%-*s ", $colwidth - 1, $d if $o->{description};
+			$d = wrap($d, $indent2, $o->{description}, $pagewidth) if $o->{description};
+			print $out (join "\n\t\t", map { cstring("$_\n") } split "\n", $d) . "\n\t\t";
 		}
 		print $out qq @"\\n", $stream);\n@;
 	}
-	if ($help{info}) {
-		print $out qq @\tfputs(@ . cstring($lang{help_info}) . qq @ "\\n", $stream);\n@;
-		print $out qq @\tfputs(@;
-		for my $token (split "\n", $help{info}) {
-			print $out cstring($indent . $token . "\n") . "\n\t\t";
-		}
-		print $out qq @"\\n", $stream);\n@;
-	}
+	print $out "\tfputs(" . (join "\n\t\t", map { cstring("$_\n") } split "\n", wrap("", $indent, $help{info}, $pagewidth)) . "\n\t\t\"\\n\", $stream);\n" if $help{info};
 	print $out qq @}\n\n@;
 } # sub print_do_help_function
 
@@ -639,8 +653,8 @@ sub print_do_version_function {
 	print $out qq @\tfputs("\\n", $stream);\n@;
 	if ($version{info}) {
 		print $out qq @\tfputs(@;
-		for my $token (split "\n", $version{info}) {
-			print $out cstring($indent . $token . "\n") . "\n\t\t";
+		for my $token (split "\n", wrap("", $version{indent} // "  ", $version{info}, $config{pagewidth} // 80)) {
+			print $out cstring($token . "\n") . "\n\t\t";
 		}
 		print $out qq @"\\n", $stream);\n@;
 	}
