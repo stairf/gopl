@@ -71,6 +71,7 @@ sub wrap {
 	my $line = $prefix;
 	my @paragraphs = split /\n\n/, $text;
 	for my $p (@paragraphs) {
+		$res .= "\n\n" if $res;
 		my @words = split /[ \n\t]+/, $p;
 		for my $w (@words) {
 			$restlen = $pagewidth - scalar (split //, $line);
@@ -84,10 +85,15 @@ sub wrap {
 		}
 		$res .= $line;
 		$line = $indent;
-		$res .= "\n\n";
 	}
 	return $res;
 } # sub wrap
+
+# print an fputs() statement
+sub print_fputs {
+	my ($out, $indent, $text, $nl, $stream) = @_;
+	print $out "${indent}fputs(" . (join "\n\t$indent", map { cstring("$_\n") } split "\n", $text) . "\n\t$indent" . cstring($nl) . ", $stream);\n";
+} # sub print_fputs
 
 # check if a string is contained in an array
 sub is_one_of {
@@ -606,20 +612,19 @@ sub print_do_help_function {
 	print $out "\tif (die_usage)\n";
 	print_exit_call($out,"\t\t",$config{die_status} // "FAILURE");
 
-	print $out "\tfputs(" . (join "\n\t\t", map { cstring("$_\n") } split "\n", wrap("", $indent, $help{description}, $pagewidth)) . "\n\t\t\"\\n\", $stream);\n" if $help{description};
+	print_fputs($out, "\t", wrap("", $indent, $help{description}, $pagewidth), "\n", $stream) if $help{description};
 	if ($help{show_args} eq "yes") {
-		print $out qq @\tfputs(@ . cstring($lang{help_args}) . qq @ "\\n", $stream);\n@;
-		print $out qq @\tfputs(@;
+		my $text = $lang{help_args} . "\n";
 		for my $a (@args) {
+
 			my $d = sprintf "%-*s ", $colwidth - 1, $indent . $a->{name};
-			$d = wrap($d, $indent2, $a->{description}, $pagewidth) . "\n" if defined $a->{description};
-			print $out (join "\n\t\t", map { cstring($_ . "\n") } split "\n", $d) . "\n\t\t";
+			$d = wrap($d, $indent2, $a->{description}, $pagewidth) if defined $a->{description};
+			$text .= "$d\n";
 		}
-		print $out qq @"\\n", $stream);\n@;
+		print_fputs($out, "\t", $text, "\n", $stream) if $text;
 	}
 	if ($help{show_options} ne "no") {
-		print $out qq @\tfputs(@ . cstring($lang{help_options}) . qq @ "\\n", $stream);\n@;
-		print $out qq @\tfputs(@;
+		my $text = $lang{help_options} . "\n";
 		for my $o (@options) {
 			my $arg = $o->{arg};
 			$arg //= "{" . $o->{values} =~ s/,/|/gr . "}" if $o->{values};
@@ -633,11 +638,11 @@ sub print_do_help_function {
 			$d .= " [" . $arg . "]" if $o->{optional} eq "yes";
 			$d = sprintf "%-*s ", $colwidth - 1, $d if $o->{description};
 			$d = wrap($d, $indent2, $o->{description}, $pagewidth) if $o->{description};
-			print $out (join "\n\t\t", map { cstring("$_\n") } split "\n", $d) . "\n\t\t";
+			$text .= "$d\n";
 		}
-		print $out qq @"\\n", $stream);\n@;
+		print_fputs($out, "\t", $text, "\n", $stream) if $text;
 	}
-	print $out "\tfputs(" . (join "\n\t\t", map { cstring("$_\n") } split "\n", wrap("", $indent, $help{info}, $pagewidth)) . "\n\t\t\"\\n\", $stream);\n" if $help{info};
+	print_fputs($out, "\t", wrap("", $indent, $help{info}, $pagewidth), "\n", $stream) if $help{info};
 	print $out qq @}\n\n@;
 } # sub print_do_help_function
 
@@ -651,13 +656,7 @@ sub print_do_version_function {
 	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
 	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
 	print $out qq @\tfputs("\\n", $stream);\n@;
-	if ($version{info}) {
-		print $out qq @\tfputs(@;
-		for my $token (split "\n", wrap("", $version{indent} // "  ", $version{info}, $config{pagewidth} // 80)) {
-			print $out cstring($token . "\n") . "\n\t\t";
-		}
-		print $out qq @"\\n", $stream);\n@;
-	}
+	print_fputs($out, "\t", wrap("", $indent, $version{info}, $config{pagewidth} // 80), "\n", $stream) if $version{info};
 	print $out "}\n\n";
 } # sub print_do_version_function
 
