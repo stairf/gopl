@@ -53,6 +53,7 @@ usage, exit 1 unless ($ARGV[0]);
 
 sub cstring {
 	my ($in) = @_;
+	return undef unless defined $in;
 	$in =~ s/\\/\\\\/g;
 	$in =~ s/"/\\"/g;
 	$in =~ s/\n/\\n/g;
@@ -605,7 +606,7 @@ sub print_do_help_function {
 	my $colwidth = scalar (split //, $indent2);
 	my $pagewidth = $config{pagewidth} // 80;
 	print $out "PRIVATE void do_help(int die_usage) {\n";
-	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . ($config{progname} // "save_argv[0]").qq@);\n@;
+	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "save_argv[0]").qq@);\n@;
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
@@ -649,7 +650,7 @@ sub print_do_help_function {
 #print the do_version function
 sub print_do_version_function {
 	my ($out) = @_;
-	my $progname = $config{progname} // "save_argv[0]";
+	my $progname = cstring($config{progname}) // "save_argv[0]";
 	my $stream = $version{output} // "stdout";
 	my $indent = $version{indent} // " " x2;
 	print $out "PRIVATE void do_version(void) {\n";
@@ -819,7 +820,7 @@ sub print_impl {
 			# --option=value, --option value, -ovalue, -o value
 			print $out "\t\tif (!a) {\n";
 			if ($o->{optional} eq "yes") {
-				print $out "\t\t\ta = " . (defined $o->{default} ? cstring($o->{default}) : "NULL") . ";\n";
+				print $out "\t\t\ta = " . ( cstring($o->{default}) // "NULL") . ";\n";
 			} else {
 				print $out "\t\t\ta = argv[++i];\n";
 				print $out "\t\t\tif (!a)\n\t\t\t\tdie_no_value(option_name);\n";
