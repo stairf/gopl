@@ -37,6 +37,8 @@ my $any_help_option;
 my $any_version_option;
 my $any_short_option = 0;
 my @enums;
+my %opts;
+use Getopt::Std;
 
 
 sub usage {
@@ -45,11 +47,6 @@ sub usage {
 	print "\t-c FILE\tprint .c output to FILE\n";
 	print "\t-h FILE\tprint .h output to FILE\n";
 }
-
-my %opts;
-use Getopt::Std;
-getopts("h:c:",\%opts);
-usage, exit 1 unless ($ARGV[0]);
 
 sub cstring {
 	my ($in) = @_;
@@ -877,9 +874,21 @@ sub print_impl {
 	close $out;
 } # sub print_impl
 
+# print the deps file
+sub print_deps {
+	my ($d,$c,$h) = @_;
+	open my $out,">$d" or die "$d: $!\n";
+	print $out "$c $h $d: " . (join " ", values %INC) . "\n\n";
+	close $out;
+} # sub print_deps
+
 ### MAIN ###
+getopts("h:c:d:",\%opts);
+usage, exit 1 unless ($ARGV[0]);
+
 read_config_file($_) for @ARGV;
 verify_config;
 print_header($opts{h}) if ($opts{h});
 print_impl($opts{c}) if ($opts{c});
+print_deps($opts{d},$opts{c},$opts{h}) if ($opts{d});
 
