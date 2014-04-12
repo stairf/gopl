@@ -40,14 +40,15 @@ my @enums;
 my %opts;
 use Getopt::Std;
 
-
+# print the usage text
 sub usage {
 	print "usage: getopt.pl [OPTIONS] config\n";
 	print "options:\n";
 	print "\t-c FILE\tprint .c output to FILE\n";
 	print "\t-h FILE\tprint .h output to FILE\n";
-}
+} # sub usage
 
+# convert a perl string to a perl string containing a C string
 sub cstring {
 	my ($in) = @_;
 	return undef unless defined $in;
