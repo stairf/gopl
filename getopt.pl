@@ -62,6 +62,12 @@ sub cstring {
 	return '"' . $in . '"';
 } # sub cstring
 
+# add a file to the dependencies
+sub depend {
+	my ($file) = @_;
+	$INC{$file} = $file if $file;
+} # sub depend
+
 # wrap a text
 sub wrap {
 	my ($prefix, $indent, $text, $pagewidth) = @_;
