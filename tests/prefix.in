@@ -1,0 +1,37 @@
+
+< --foo=a
+foo='a'
+
+< --b c
+bar='c'
+
+< --b=a
+bar='a'
+
+< --ba x
+bar='x'
+
+< --foo q
+foo='q'
+
+< --foo a --foobar b
+foo='a' foobar='b'
+
+< --foob=x
+foobar='x'
+
+< --foob=a --b b
+foobar='a' bar='b'
+
+! --f
+! --f=a
+! --fo=a
+! --foo=a --f=x
+! --barx
+! --bar=x --foobarx=y
+! --barx y
+! --foobarx y
+! --ba x --f y
+! -fx
+! -b a
+

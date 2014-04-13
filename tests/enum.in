@@ -1,0 +1,33 @@
+
+< --foo=a
+foo='0'
+
+< -xfoo
+x='0'
+
+< -xbar
+x='1'
+
+< -x foo-bar
+x='2'
+
+< -xfoo-bar
+x='2'
+
+--foo b
+foo='1'
+
+! --foo
+! --foo=bar
+! -x
+! -xy
+! -xfoo-bar-eh
+! -xfoobar
+! -xf
+! -xfooba
+! --foo foo
+! --foo=
+! --bar=foo
+! --foo=x
+! --foo=asdf
+! --foo asdf

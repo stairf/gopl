@@ -1,0 +1,18 @@
+
+< --foo=a
+foo='a' bar='a' xx='0' yy='0'
+
+< --xx
+xx='1' yy='1'
+
+< --yy
+xx='1' yy='1'
+
+< --xx --yy
+xx='1' yy='1'
+
+< --bar=x --foo=y
+foo='y' bar='y' xx='0' yy='0'
+
+
+
