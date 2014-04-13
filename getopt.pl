@@ -718,7 +718,6 @@ sub trie_code {
 			print $out "\tif (*a == '=')\n\t\ta++;\n\telse if (!*a)\n\t\ta = NULL;\n";
 		}
 		print $out "\toption_name = \"$path" . (join "", @{ $node->{entry}->{key} }) . "\";\n";
-		print $out "\tuse_short_name = false;\n" if $any_short_option;
 		print $out "\tgoto state_assign_$o->{name};\n";
 	} else {
 		print $out "\tgoto unknown_long;\n";
@@ -800,7 +799,6 @@ sub print_impl {
 	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
 	print $out "\tconst char *a;\n\tconst char *option_name;\n";
 	print $out "\tint i = 0;\n\tint j = 0;\n";
-	print $out "\tbool use_short_name = true;\n" if $any_short_option;
 	print $out "\tchar short_option_name[3] = { '-', '\\0', '\\0' };\n";
 
 	print $out "next_word:\n\ti++;\n";
@@ -839,11 +837,11 @@ sub print_impl {
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
 			# --flag, -f
-			print $out "\t\tif (a" . ($any_short_option ? " && !use_short_name" : "") . ")\n\t\t\tgoto unknown_long;\n";
+			print $out "\t\tif (a" . ($any_short_option ? " && (option_name[1] == '-')" : "") . ")\n\t\t\tgoto unknown_long;\n";
 			print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\tif (use_short_name)\n\t\t\tgoto next_char;\n\t\telse\n\t" if $o->{short};
+			print $out "\t\tif (option_name[1] != '-')\n\t\t\tgoto next_char;\n\t\telse\n\t" if $o->{short};
 			print $out "\t\tgoto next_word;\n\t}\n";
 		}
 	}
@@ -854,9 +852,8 @@ sub print_impl {
 
 	# short names
 	print $out "short_name:\n";
-	print $out "\tuse_short_name = true;\n" if $any_short_option;
 	print $out "\tj = 0;\n";
-	print $out "next_char:\n" if $any_short_option;
+	print $out "\tgoto next_char;\nnext_char:\n" if $any_short_option;
 	print $out "\tj++;\n";
 	print $out "\tif (argv[i][j] == '\\0')\n\t\tgoto next_word;\n";
 	print $out "\ta = &argv[i][j+1];\n";
