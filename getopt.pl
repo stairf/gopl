@@ -46,6 +46,7 @@ sub usage {
 	print "options:\n";
 	print "\t-c FILE\tprint .c output to FILE\n";
 	print "\t-h FILE\tprint .h output to FILE\n";
+	print "\t-d FILE\tprint .d output to FILE\n";
 } # sub usage
 
 # convert a perl string to a perl string containing a C string
