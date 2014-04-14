@@ -1,0 +1,51 @@
+
+< -x
+x='-1'
+
+< -y
+y='(null)'
+
+< -x1 -y
+x='1' y='(null)'
+
+< -x 1 -y
+x='-1' '1' '-y'
+
+< -x -yz
+x='-1' y='z'
+
+< -z x -x 1
+z='x' x='-1' '1'
+
+< -zfoo -x
+z='foo' x='-1'
+
+< -x1234
+x='1234'
+
+< -x1 -yfoo
+x='1' y='foo'
+
+< -x-1
+x='-1'
+
+< -x -y
+x='-1' y='(null)'
+
+< -z -xy
+z='-xy'
+
+< -zxy
+z='xy'
+
+< -x2 -zy
+x='2' z='y'
+
+< -x1 -y
+x='1' y='(null)'
+
+! -xy
+! -z
+! -y -xy
+! -xz foo
+
