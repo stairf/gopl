@@ -1,0 +1,48 @@
+
+< -a
+a='-1'
+
+< --foo
+foo='D' bar='D'
+
+< --bar
+foo='D' bar='D'
+
+< --bar=
+foo='' bar=''
+
+< --boo=
+b='' boo=''
+
+< -bar
+b='ar' boo='ar'
+
+< -a5
+a='5'
+
+< -- -a5
+'-a5'
+
+< --f
+foo='D' bar='D'
+
+< -a x
+a='-1' 'x'
+
+< -b x
+b='x' boo='x'
+
+< -a-1
+a='-1'
+
+< --foo --bar=xy
+foo='xy' bar='xy'
+
+< -b -a
+b='-a' boo='-a'
+
+! -ax
+! -b
+! --boo
+! -a -b
+
