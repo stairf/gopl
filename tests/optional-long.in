@@ -1,0 +1,46 @@
+
+< --foo=1
+foo='1' bar='1'
+
+< --foo 2
+foo='-1' bar='-1' '2'
+
+< --bar=1 --foo
+bar='-1' foo='-1'
+
+< --bar --foo=5
+foo='5' bar='5'
+
+< --hoo --foo
+hoo='--foo'
+
+< --goo --foo
+foo='-1' bar='-1' goo='(null)'
+
+< --goo --hoo=a
+goo='(null)' hoo='a'
+
+< --goo=foobar
+goo='foobar'
+
+< --bar=1234
+foo='1234' bar='1234'
+
+! --foo=yx
+! --bar=xy
+! --foo --bar=xy
+! --foo --hoo
+
+# abbreviations
+
+< --f=199 a
+foo='199' bar='199' 'a'
+
+< --f=1234 --b=2345
+foo='2345' bar='2345'
+
+< --go
+goo='(null)'
+
+! --ho
+
