@@ -2,7 +2,7 @@
 
 CC      := gcc
 LD      := gcc
-CFLAGS  := -std=c99 -Wall -g -O -I.
+CFLAGS  := -std=c99 -Wall -g -O -I. -Wextra
 LDFLAGS :=
 GOPL    := ../getopt.pl
 RM      := rm -rf

@@ -719,7 +719,7 @@ sub trie_code {
 			print $out "\tif (*option_arg == '=')\n\t\toption_arg++;\n\telse if (!*option_arg)\n\t\toption_arg = NULL;\n";
 		}
 		print $out "\toption_name = \"$path" . (join "", @{ $node->{entry}->{key} }) . "\";\n";
-		print $out "\tgoto state_assign_$o->{name};\n";
+		print $out "\tgoto state_assign_$o->{name}_long;\n";
 	} else {
 		print $out "\tgoto unknown_long;\n";
 	}
@@ -818,10 +818,11 @@ sub print_impl {
 		my $name = $o->{name};
 		my @longnames = split ",", $o->{long};
 		my %replace = %{ $o->{replace} // {} };
-		print $out "state_assign_$name:\n\t{\n";
 		if ($type->{needs_val}) {
+			print $out "state_assign_${name}_long:\n" if $o->{long};
+			print $out "state_assign_${name}_short:\n" if $o->{short};
 			# --option=value, --option value, -ovalue, -o value
-			print $out "\t\tif (!option_arg) {\n";
+			print $out "\t{\n\t\tif (!option_arg) {\n";
 			if ($o->{optional} eq "yes") {
 				print $out "\t\t\toption_arg = " . ( cstring($o->{default}) // "NULL") . ";\n";
 			} else {
@@ -837,13 +838,22 @@ sub print_impl {
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
-			# --flag, -f
-			print $out "\t\tif (option_arg" . ($any_short_option ? " && (option_name[1] == '-')" : "") . ")\n\t\t\tgoto unknown_long;\n";
-			print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
-			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
-			print $out "\t\tif (option_name[1] != '-')\n\t\t\tgoto next_char;\n\t\telse\n\t" if $o->{short};
-			print $out "\t\tgoto next_word;\n\t}\n";
+			if ($o->{long}) {
+				# --flag, -f
+				print $out "state_assign_${name}_long:\n\t{\n";
+				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
+				print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
+				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+				print $out "\t\tgoto next_word;\n\t}\n";
+			}
+			if ($o->{short}) {
+				print $out "state_assign_${name}_short:\n\t{\n";
+				print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
+				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+				print $out "\t\tgoto next_char;\n\t}\n";
+			}
 		}
 	}
 
@@ -861,7 +871,7 @@ sub print_impl {
 	print $out "\tshort_option_buf[1] = argv[word_idx][char_idx];\n";
 	print $out "\toption_name = short_option_buf;\n";
 	print $out "\tif (!*option_arg)\n\t\toption_arg = NULL;\n";
-	print $out "\t" . (join "\telse ", map { "if (argv[word_idx][char_idx] == '$_->{short}')\n\t\tgoto state_assign_$_->{name};\n" } grep { defined $_->{short} } @options) if $any_short_option;
+	print $out "\t" . (join "\telse ", map { "if (argv[word_idx][char_idx] == '$_->{short}')\n\t\tgoto state_assign_$_->{name}_short;\n" } grep { defined $_->{short} } @options) if $any_short_option;
 	print $out "\twarn_unknown(option_name);\n" if $config{unknown} ne "ignore";
 	print $out "\tgoto next_word;\n";
 
