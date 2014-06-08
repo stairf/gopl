@@ -641,7 +641,7 @@ sub print_do_help_function {
 			$d .= " " if $o->{short} and $o->{long};
 			$d .= join " ", map { "--$_" } split ",", $o->{long};
 			$d .= " " . $arg if $type->{needs_val} and $o->{optional} ne "yes";
-			$d .= " [" . $arg . "]" if $o->{optional} eq "yes";
+			$d .= "[". ($o->{long} ? "=":"") . $arg . "]" if $o->{optional} eq "yes";
 			$d = sprintf "%-*s ", $colwidth - 1, $d if $o->{description};
 			$d = wrap($d, $indent2, $o->{description}, $pagewidth) if $o->{description};
 			$text .= "$d\n";
