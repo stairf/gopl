@@ -801,13 +801,17 @@ sub print_impl {
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
+	print $out "\tconst char *opts[argc];\n\tconst char *args[argc];\n";
+	print $out "\tint nargs = 0;\n\tint nopts = 0;\n";
+	print $out "\tbool permute = !getenv(\"POSIXLY_CORRECT\");\n";
 
 	print $out "next_word:\n\tword_idx++;\n";
-	print $out "\tif (word_idx == argc || argv[word_idx][0] != '-') {\n\t\tfirst_arg = word_idx;\n\t\tgoto check_args;\n\t} ";
-	print $out "else if (argv[word_idx][1] == '\\0')\n\t\tgoto arg_dash;\n";
+	print $out "\tif (word_idx >= argc)\n\t\tgoto state_check_args;\n";
+	print $out "\telse if (argv[word_idx][0] != '-')\n\t\tgoto state_arg;\n";
+	print $out "\telse if (argv[word_idx][1] == '\\0')\n\t\tgoto state_arg;\n";
 	print $out "\telse if (argv[word_idx][1] != '-')\n\t\tgoto short_name;\n";
-	print $out "\telse if (argv[word_idx][1] == '-' && argv[word_idx][2] == '\\0')\n\t\tgoto arg_ddash;\n";
-	print $out "\tgoto state_0;\n";
+	print $out "\telse if (argv[word_idx][1] == '-' && argv[word_idx][2] =='\\0')\n\t\tgoto state_ddash;\n";
+	print $out "\topts[nopts++] = argv[word_idx];\n\tgoto state_0;\n";
 	print $out "unknown_long:\n";
 	print $out "\twarn_unknown(argv[word_idx]);\n" if $config{unknown} ne "ignore";
 	print $out "\tgoto next_word;\n";
@@ -828,6 +832,7 @@ sub print_impl {
 			} else {
 				print $out "\t\t\toption_arg = argv[++word_idx];\n";
 				print $out "\t\t\tif (!option_arg)\n\t\t\t\tdie_no_value(option_name);\n";
+				print $out "\t\t\topts[nopts++] = argv[word_idx];\n";
 			}
 			print $out "\t\t}\n";
 
@@ -863,7 +868,7 @@ sub print_impl {
 
 	# short names
 	print $out "short_name:\n";
-	print $out "\tchar_idx = 0;\n";
+	print $out "\topts[nopts++] = argv[word_idx];\n\tchar_idx = 0;\n";
 	print $out "\tgoto next_char;\nnext_char:\n" if $any_short_option;
 	print $out "\tchar_idx++;\n";
 	print $out "\tif (argv[word_idx][char_idx] == '\\0')\n\t\tgoto next_word;\n";
@@ -875,14 +880,21 @@ sub print_impl {
 	print $out "\twarn_unknown(option_name);\n" if $config{unknown} ne "ignore";
 	print $out "\tgoto next_word;\n";
 
-	# special arguments: - and --
-	print $out "arg_ddash:\n\tword_idx++;\n";
-	print $out "arg_dash:\n\tfirst_arg = word_idx;\n";
-	print $out "check_args:\n";
+	# special arguments: - and --, but every non-option argument is treated like -
+	print $out "state_arg:\n";
+	print $out "\tif (!permute)\n\t\tgoto state_stop_option_processing;\n";
+	print $out "\targs[nargs++] = argv[word_idx];\n";
+	print $out "\tgoto next_word;\n";
+	print $out "state_ddash:\n\topts[nopts++] = argv[word_idx++];\n\tgoto state_stop_option_processing;\n";
+	print $out "state_stop_option_processing:\n\tmemcpy(args + nargs, argv + word_idx, (argc - word_idx) * sizeof(char *));\n\tnargs += argc - word_idx;\n";
+	print $out "state_check_args:\n";
+	print $out "\tmemcpy(argv + 1, opts, nopts * sizeof(char *));\n";
+	print $out "\tmemcpy(argv + 1 + nopts, args, nargs * sizeof(char *));\n";
+	print $out "\tfirst_arg = argc - nargs;\n";
 	my $minargs = get_args_min_count();
 	my $maxargs = get_args_max_count();
-	print $out "\tif (${prefix}_arg_count() < $minargs) do_help(1);\n" if ($minargs != 0);
-	print $out "\tif (${prefix}_arg_count() > $maxargs) do_help(1);\n" if (defined $maxargs);
+	print $out "\tif (nargs < $minargs)\n\t\tdo_help(1);\n" if ($minargs != 0);
+	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(1);\n" if (defined $maxargs);
 	print $out "\treturn;\n";
 
 	print $out "} /* end of: ${prefix}_parse */\n\n";
