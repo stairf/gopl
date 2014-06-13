@@ -518,6 +518,9 @@ sub verify_config {
 		die "option #$cnt: the type $option->{type} must not have a callback function\n" unless (!$option->{callback} or $option->{type} eq "callback");
 		die "option #$cnt: the type $option->{type} must have a callback function\n" if (!$option->{callback} and $option->{type} eq "callback");
 		die "option #$cnt: replace must be a hash reference\n" if defined $option->{replace} and ref $option->{replace} ne "HASH";
+		die "option #$cnt: the verify function name must be a C identifier\n" if defined $option->{verify} and $option->{verify} !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/;
+		die "option #$cnt: the callback function name must be a C identifier\n" if defined $option->{callback} and $option->{callback} !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/;
+		die "option #$cnt: the optional property must be either yes or no\n" if defined $option->{optional} and !is_one_of($option->{optional}, "yes", "no");
 		$option->{name} = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
