@@ -131,7 +131,7 @@ sub declare_get_func {
 	my ($out, $ctype, $varname, $modifiers) = @_;
 	$varname =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$varname (void);\n\n";
+	print $out $modifiers . "$ctype ${prefix}_get_$varname(void);\n\n";
 } # sub declare_get_func
 
 #declare the C "has" function
@@ -139,7 +139,7 @@ sub declare_has_func {
 	my ($out, $varname, $modifiers) = @_;
 	$varname =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$varname (void);\n\n";
+	print $out $modifiers . "bool ${prefix}_has_$varname(void);\n\n";
 } # sub declare_has_func
 
 #print the C "get" function
@@ -148,7 +148,7 @@ sub print_get_func {
 	return unless $ctype;
 	$opt =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$opt (void) {\n\treturn ${prefix}_$name;\n}\n\n";
+	print $out $modifiers . "$ctype ${prefix}_get_$opt(void)\n{\n\treturn ${prefix}_$name;\n}\n\n";
 } # sub print_get_func
 
 # print the C "has" function
@@ -156,7 +156,7 @@ sub print_has_func {
 	my ($out, $opt, $modifiers, $name) = @_;
 	$opt =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$opt (void) {\n\treturn ${prefix}_has_$name;\n}\n\n";
+	print $out $modifiers . "bool ${prefix}_has_$opt(void)\n{\n\treturn ${prefix}_has_$name;\n}\n\n";
 } # sub print_has_func
 
 # print an enum
@@ -301,7 +301,7 @@ sub version_print_assign {
 sub callback_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
 	my $callback = $ref->{callback};
-	print $out $indent . "if(!($callback ($src)))\n";
+	print $out $indent . "if (!($callback($src)))\n";
 	print $out $indent . "\tdie_invalid_value($option, $src);\n"
 } # sub callback_print_assign
 
@@ -610,7 +610,7 @@ sub print_do_help_function {
 	my $indent2 = $help{indent2} // " " x 25;
 	my $colwidth = scalar (split //, $indent2);
 	my $pagewidth = $config{pagewidth} // 80;
-	print $out "PRIVATE void do_help(int die_usage) {\n";
+	print $out "PRIVATE void do_help(int die_usage)\n{\n";
 	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "save_argv[0]").qq@);\n@;
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
@@ -658,7 +658,7 @@ sub print_do_version_function {
 	my $progname = cstring($config{progname}) // "save_argv[0]";
 	my $stream = $version{output} // "stdout";
 	my $indent = $version{indent} // " " x2;
-	print $out "PRIVATE void do_version(void) {\n";
+	print $out "PRIVATE void do_version(void)\n{\n";
 	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
 	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
 	print $out qq @\tfputs("\\n", $stream);\n@;
@@ -741,7 +741,7 @@ sub print_impl {
 	# __attrubute__((unused)) to avoid `unused ...' compiler warnings
 	print $out "\n#ifdef __GNUC__\n#  define PRIVATE static __attribute__((unused))\n#else\n#  define PRIVATE static\n#endif /* __GNUC__ */\n\n";
 	print $out "#define STR(x) #x\n";
-	print $out "#define ${prefix}_ERR_PTR ((void*)-1)\n";
+	print $out "#define ${prefix}_ERR_PTR ((void *)-1)\n";
 	print $out "\n";
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
@@ -762,32 +762,32 @@ sub print_impl {
 	}
 
 	print $out "\n";
-	print $out "int ${prefix}_arg_count(void) {\n\treturn save_argc - first_arg;\n}\n\n";
+	print $out "int ${prefix}_arg_count(void)\n{\n\treturn save_argc - first_arg;\n}\n\n";
 
-	print $out "const char *${prefix}_arg_get(int index) {";
+	print $out "const char *${prefix}_arg_get(int index)\n{";
 	print $out "\n\tif (index < 0 || first_arg + index > save_argc)\n\t\treturn NULL;" if $config{indexcheck};
 	print $out "\n\treturn save_argv[first_arg + index];\n";
 	print $out "}\n\n";
 
-	print $out "PRIVATE void warn_unknown(const char *option) {\n";
+	print $out "PRIVATE void warn_unknown(const char *option)\n{\n";
 	print $out "\tfprintf(stderr, " . cstring($lang{opt_unknown}) . " \"\\n\", option);\n";
 	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if ($config{unknown} // "die") eq "die";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_no_value(const char *option) {\n@;
+	print $out qq @PRIVATE void die_no_value(const char *option)\n{\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
 	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
 	print $out "}\n\n";
 
-	print $out "PRIVATE int streq(const char *a, const char *b) {\n\treturn !strcmp(a,b);\n";
+	print $out "PRIVATE int streq(const char *a, const char *b)\n{\n\treturn !strcmp(a, b);\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value) {\n@;
+	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value)\n{\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_bad_val}) . qq @ "\\n", option, value);\n@;
 	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
 	print $out "}\n\n";
 
-	print $out "PRIVATE const char *skip_unique_option_name(const char *word, const char *name) {\n";
+	print $out "PRIVATE const char *skip_unique_option_name(const char *word, const char *name)\n{\n";
 	print $out "\twhile (*name) {\n";
 	print $out "\t\tif (*word == '\\0' || *word == '=')\n\t\t\tbreak;\n";
 	print $out "\t\tif (*word != *name)\n\t\t\treturn ${prefix}_ERR_PTR;\n";
@@ -796,17 +796,17 @@ sub print_impl {
 	print $out "}\n\n";
 
 	# print opt_parse / ${prefix}_parse
-	print $out "void ${prefix}_parse(int argc, const char **argv) {\n";
+	print $out "void ${prefix}_parse(int argc, const char **argv)\n{\n";
 	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
 
 	print $out "next_word:\n\tword_idx++;\n";
-	print $out "\tif (word_idx == argc || argv[word_idx][0] != '-') {\n\t\tfirst_arg = word_idx;\n\t\tgoto check_args;\n\t}\n";
-	print $out "\telse if (argv[word_idx][1] == '\\0')\n\t\tgoto arg_dash;\n";
+	print $out "\tif (word_idx == argc || argv[word_idx][0] != '-') {\n\t\tfirst_arg = word_idx;\n\t\tgoto check_args;\n\t} ";
+	print $out "else if (argv[word_idx][1] == '\\0')\n\t\tgoto arg_dash;\n";
 	print $out "\telse if (argv[word_idx][1] != '-')\n\t\tgoto short_name;\n";
-	print $out "\telse if (argv[word_idx][1] == '-' && argv[word_idx][2] =='\\0')\n\t\tgoto arg_ddash;\n";
+	print $out "\telse if (argv[word_idx][1] == '-' && argv[word_idx][2] == '\\0')\n\t\tgoto arg_ddash;\n";
 	print $out "\tgoto state_0;\n";
 	print $out "unknown_long:\n";
 	print $out "\twarn_unknown(argv[word_idx]);\n" if $config{unknown} ne "ignore";
