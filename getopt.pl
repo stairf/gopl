@@ -95,6 +95,16 @@ sub wrap {
 	return $res;
 } # sub wrap
 
+# get an option reference by its name
+sub option_by_name {
+	my ($name) = @_;
+	for my $o (@options) {
+		return $o if ($o->{short} // "") eq $name;
+		return $o if grep { $_ eq $name } split ",", ($o->{long} // "");
+	}
+	return undef;
+} # sub option_by_name
+
 # print an fputs() statement
 sub print_fputs {
 	my ($out, $indent, $text, $nl, $stream) = @_;
@@ -274,26 +284,27 @@ sub char_print_assign {
 
 # print assignment for type "counter"
 sub counter_print_assign {
-	my ($out, $indent, $option, $varname, $ref) = @_;
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
 	print $out $indent . "$varname++;\n";
 } # sub counter_print_assign
 
 # print assignment for type "flag"
 sub flag_print_assign {
-	my ($out, $indent, $option, $varname, $ref) = @_;
-	print $out $indent . "$varname = 1;\n";
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
+	return if ref_print_assign($out, $indent, $option, $varname, $ref, $src);
+	print $out $indent . "$varname = $src;\n";
 } # sub flag_print_assign
 
 # print assignment for type "help" --> call help function
 sub help_print_assign {
 	# this is the "assignment" for a help option
-	my ($out, $indent, $option, $varname, $ref) = @_;
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
 	print $out $indent . "do_help(0);\n";
 } # sub help_print_assign
 
 # print assignment for type "version" --> call version function
 sub version_print_assign {
-	my ($out, $indent, $option, $varname, $ref) = @_;
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
 	print $out $indent . "do_version();\n";
 } # sub version_print_assign
 
@@ -428,6 +439,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { flag_print_assign(@_) },
 		may_verify => 0,
+		may_reference => 1,
 	},
 	counter => {
 		ctype => "int",
@@ -468,6 +480,22 @@ my $types = {
 	},
 }; # my $types
 
+# handle references for assignment
+sub ref_print_assign {
+	my ($out, $indent, $option, $varname, $ref, $src) = @_;
+	return 0 unless defined $ref->{reference};
+	my $rtype = $types->{$ref->{reference}->{type}};
+	if ($rtype->{needs_val}) {
+		print $out $indent . "option_arg = " . cstring($src) . ";\n";
+		print $out $indent . "goto state_assign_$ref->{reference}->{name}" . ($ref->{reference}->{short} ? "_short" : "_long" ). ";\n";
+	} else {
+		my $assign_func = $rtype->{print_assign};
+		&$assign_func($out, $indent, $option, "opt_" . $ref->{reference}->{name}, $ref->{reference}, $src);
+	}
+	return 1;
+} # sub ref_print_assign
+
+
 # verify the options and the config
 sub verify_config {
 	my %short;
@@ -504,6 +532,14 @@ sub verify_config {
 			my $type = $types->{$option->{type}};
 			die "option #$cnt takes no value\n" unless $type->{needs_val};
 			die "option #$cnt needs a default value\n" unless $type->{needs_val} eq "optional" or defined $option->{default};
+		}
+		if (defined $option->{reference}) {
+			die "option #$cnt: the type $option->{type} does not support references\n" unless $types->{$option->{type}}->{may_reference};
+			die "option #$cnt: reference options need a value\n" unless defined $option->{value};
+			my $refopt = option_by_name($option->{reference});
+			die "option #$cnt: referenced option '$option->{reference}' not found\n" unless defined $refopt;
+			die "option #$cnt: option '$option->{reference}' cannot be referenced\n" unless $types->{$refopt->{type}}->{ctype};
+			$option->{reference} = $refopt;
 		}
 		$cnt++;
 	}
@@ -542,7 +578,7 @@ sub print_header {
 	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
 	print $out "extern int ${prefix}_arg_count(void);\n";
 	print $out "extern const char *${prefix}_arg_get(int);\n\n";
-	for my $option (@options) {
+	for my $option (grep { !defined $_->{reference} } @options) {
 		my $typename = $option->{type};
 		my $type = $types->{$typename};
 		my @longnames = split ",", $option->{long} =~ s/-/_/gr;
@@ -751,7 +787,7 @@ sub print_impl {
 	print_do_help_function($out) if ($any_help_option || get_args_min_count() != 0 || defined get_args_max_count);
 	print_do_version_function($out) if ($any_version_option);
 
-	for my $option (@options) {
+	for my $option (grep { !defined $_->{reference} } @options) {
 		my $typename = $option->{type};
 		my $type = $types->{$typename};
 		my $name = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
@@ -848,14 +884,14 @@ sub print_impl {
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
 				print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
 				print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o);
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\tgoto next_char;\n\t}\n";
 			}
