@@ -23,6 +23,12 @@ foobar='x'
 < --foob=a --b b
 foobar='a' bar='b'
 
+< --foo -- x y
+foo='--' 'x' 'y'
+
+< --foob -- --b c -- --fo
+foobar='--' bar='c' '--fo'
+
 ! --f
 ! --f=a
 ! --fo=a
