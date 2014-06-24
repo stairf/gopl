@@ -925,10 +925,9 @@ sub print_impl {
 	print $out "\targs[nargs++] = argv[word_idx];\n";
 	print $out "\tgoto next_word;\n";
 	print $out "state_ddash:\n\topts[nopts++] = argv[word_idx++];\n\tgoto state_stop_option_processing;\n";
-	print $out "state_stop_option_processing:\n\tmemcpy(args + nargs, argv + word_idx, (argc - word_idx) * sizeof(char *));\n\tnargs += argc - word_idx;\n";
+	print $out "state_stop_option_processing:\n\tif (permute)\n\t\tmemcpy(args + nargs, argv + word_idx, (argc - word_idx) * sizeof(char *));\n\tnargs += argc - word_idx;\n";
 	print $out "state_check_args:\n";
-	print $out "\tmemcpy(argv + 1, opts, nopts * sizeof(char *));\n";
-	print $out "\tmemcpy(argv + 1 + nopts, args, nargs * sizeof(char *));\n";
+	print $out "\tif (permute) {\n\t\tmemcpy(argv + 1, opts, nopts * sizeof(char *));\n\t\tmemcpy(argv + 1 + nopts, args, nargs * sizeof(char *));\n\t}\n";
 	print $out "\tfirst_arg = argc - nargs;\n";
 	my $minargs = get_args_min_count();
 	my $maxargs = get_args_max_count();
