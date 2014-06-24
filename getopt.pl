@@ -559,6 +559,7 @@ sub verify_config {
 
 	die "\$config{indexcheck} must be 'yes' or 'no'\n" if (defined $config{indexcheck} and !is_one_of($config{indexcheck},'yes','no'));
 	die "\$config{unknown} must be 'die','warn' or 'ignore'\n" if (defined $config{unknown} and !is_one_of($config{unknown},'die','warn','ignore'));
+	die "\$config{permute} must be 'yes', or 'auto', or 'no'\n" if (defined $config{permute} and !is_one_of($config{permute},'yes','no', 'auto'));
 	die "\$config{include} must be an array reference\n" if (defined $config{include} and ref $config{include} ne "ARRAY");
 
 	die "\$help{show_args} must be 'yes' or 'no'\n" if (defined $help{show_args} and !is_one_of($help{show_args},'yes','no'));
@@ -842,7 +843,7 @@ sub print_impl {
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
 	print $out "\tconst char *opts[argc];\n\tconst char *args[argc];\n";
 	print $out "\tint nargs = 0;\n\tint nopts = 0;\n";
-	print $out "\tbool permute = !getenv(\"POSIXLY_CORRECT\");\n";
+	print $out "\tconst bool permute = " . { yes => "true", no => "false", auto => "!getenv(\"POSIXLY_CORRECT\")" }->{$config{permute} // "auto"} . ";\n";
 
 	print $out "next_word:\n\tword_idx++;\n";
 	print $out "\tif (word_idx >= argc)\n\t\tgoto state_check_args;\n";
