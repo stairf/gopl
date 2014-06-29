@@ -1,0 +1,23 @@
+
+< a
+'a'
+
+< foo
+'foo'
+
+< -- foo
+'foo'
+
+< foo --
+'foo'
+
+< -
+'-'
+
+!
+! a b
+! a b c
+! foo bar
+! foo --help
+! --help foo
+
