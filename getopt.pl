@@ -123,8 +123,8 @@ sub declare_var {
 	return unless $ctype;
 	$modifiers .= " " if ($modifiers);
 	$varname =~ s/-/_/g;
-	print $out $modifiers . "bool ${prefix}_has_$varname = false;\n" if ($hasvar);
-	print $out $modifiers . "$ctype ${prefix}_$varname";
+	print $out $modifiers . "bool ${prefix}_varhas_$varname = false;\n" if ($hasvar);
+	print $out $modifiers . "$ctype ${prefix}_var_$varname";
 	print $out " = $val" if ($val);
 	print $out ";\n\n";
 } # sub declare_var
@@ -158,7 +158,7 @@ sub print_get_func {
 	return unless $ctype;
 	$opt =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$opt(void)\n{\n\treturn ${prefix}_$name;\n}\n\n";
+	print $out $modifiers . "$ctype ${prefix}_get_$opt(void)\n{\n\treturn ${prefix}_var_$name;\n}\n\n";
 } # sub print_get_func
 
 # print the C "has" function
@@ -166,7 +166,7 @@ sub print_has_func {
 	my ($out, $opt, $modifiers, $name) = @_;
 	$opt =~ s/-/_/g;
 	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$opt(void)\n{\n\treturn ${prefix}_has_$name;\n}\n\n";
+	print $out $modifiers . "bool ${prefix}_has_$opt(void)\n{\n\treturn ${prefix}_varhas_$name;\n}\n\n";
 } # sub print_has_func
 
 # print an enum
@@ -490,7 +490,7 @@ sub ref_print_assign {
 		print $out $indent . "goto state_assign_$ref->{reference}->{name}" . ($ref->{reference}->{short} ? "_short" : "_long" ). ";\n";
 	} else {
 		my $assign_func = $rtype->{print_assign};
-		&$assign_func($out, $indent, $option, "opt_" . $ref->{reference}->{name}, $ref->{reference}, $src);
+		&$assign_func($out, $indent, $option, $prefix  . "_var_" . $ref->{reference}->{name}, $ref->{reference}, $src);
 	}
 	return 1;
 } # sub ref_print_assign
@@ -877,9 +877,9 @@ sub print_impl {
 			print $out "\t\t}\n";
 
 			print $out "\t\t" . (join "\n\t\telse ", map { "if (streq(option_arg, " . cstring($_) . "))\n\t\t\toption_arg = " . cstring($replace{$_}) . ";" } keys %replace) . "\n" if %replace;
-			print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t", "option_name", "${prefix}_$name", $o, "option_arg");
-			print_verify($out, "\t\t", "option_name", "${prefix}_$name", "option_arg", $o->{verify}) if $o->{verify};
+			print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
+			&$assign_func($out, "\t\t", "option_name", "${prefix}_var_$name", $o, "option_arg");
+			print_verify($out, "\t\t", "option_name", "${prefix}_var_$name", "option_arg", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
@@ -887,15 +887,15 @@ sub print_impl {
 				# --flag, -f
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
-				print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, $o->{value} // 1);
+				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
-				print $out "\t\t${prefix}_has_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_$name", $o, $o->{value} // 1);
+				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\tgoto next_char;\n\t}\n";
 			}
