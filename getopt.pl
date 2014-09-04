@@ -495,6 +495,18 @@ sub ref_print_assign {
 	return 1;
 } # sub ref_print_assign
 
+# declare the opt_options struct
+sub declare_struct {
+	my ($out) = @_;
+	print $out "struct ${prefix}_options {\n";
+	print $out "\tint argc;\n\tconst char **argv;\n\tint nargs;\n\tconst char **args;\n";
+	for my $o (@options) {
+		my $type = $types->{$o->{type}};
+		print $out "\tbool $o->{name}_given;\n" if $type->{generate_has};
+		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
+	}
+	print $out "}; /* end of struct ${prefix}_options */\n\n";
+} # sub declare_struct
 
 # verify the options and the config
 sub verify_config {
@@ -585,6 +597,7 @@ sub print_header {
 	print $out "#ifdef __cplusplus\nextern \"C\" {\n#endif /* __cplusplus */\n\n";
 
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
+	declare_struct($out);
 
 	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
 	print $out "extern int ${prefix}_arg_count(void);\n";
@@ -791,6 +804,7 @@ sub print_impl {
 	print $out "#define ${prefix}_ERR_PTR ((void *)-1)\n";
 	print $out "\n";
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
+	declare_struct($out);
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
 	print $out "static int first_arg;\n\n";
 
