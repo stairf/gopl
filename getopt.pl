@@ -508,6 +508,27 @@ sub declare_struct {
 	print $out "}; /* end of struct ${prefix}_options */\n\n";
 } # sub declare_struct
 
+# declare struct member accessor macros
+sub declare_accessors {
+	my ($out) = @_;
+	print $out "#define ${prefix}_argc(_x) ((_x).argc)\n";
+	print $out "#define ${prefix}_argv(_x) ((_x).argv)\n";
+	print $out "#define ${prefix}_nargs(_x) ((_x).nargs)\n";
+	print $out "#define ${prefix}_arg(_x, _i) ((_x).args[(_i)])\n";
+	for my $o (@options) {
+		my $type = $types->{$o->{type}};
+		my @names = map { s/-/_/gr } split ",", $o->{long};
+		push @names, $o->{short} if $o->{short};
+		if ($type->{generate_has}) {
+			print $out "#define ${prefix}_${_}_given(_x) ((_x).$o->{name}_given)\n" for @names;
+		}
+		if ($type->{generate_get}) {
+			print $out "#define ${prefix}_${_}_value(_x) ((_x).$o->{name}_value)\n" for @names;
+		}
+	}
+	print $out "\n";
+} # sub declare_accessors
+
 # verify the options and the config
 sub verify_config {
 	my %short;
@@ -598,6 +619,7 @@ sub print_header {
 
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
 	declare_struct($out);
+	declare_accessors($out);
 
 	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
 	print $out "extern int ${prefix}_arg_count(void);\n";
@@ -805,6 +827,7 @@ sub print_impl {
 	print $out "\n";
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
 	declare_struct($out);
+	declare_accessors($out);
 	print $out "static const char **save_argv;\nstatic int save_argc;\n";
 	print $out "static int first_arg;\n\n";
 
