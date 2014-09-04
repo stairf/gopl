@@ -490,7 +490,7 @@ sub ref_print_assign {
 		print $out $indent . "goto state_assign_$ref->{reference}->{name}" . ($ref->{reference}->{short} ? "_short" : "_long" ). ";\n";
 	} else {
 		my $assign_func = $rtype->{print_assign};
-		&$assign_func($out, $indent, $option, $prefix  . "_var_" . $ref->{reference}->{name}, $ref->{reference}, $src);
+		&$assign_func($out, $indent, $option, "result->$ref->{reference}->{name}_value", $ref->{reference}, $src);
 	}
 	return 1;
 } # sub ref_print_assign
@@ -621,7 +621,7 @@ sub print_header {
 	declare_struct($out);
 	declare_accessors($out);
 
-	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
+	print $out "extern void ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result);\n\n";
 	print $out "extern int ${prefix}_arg_count(void);\n";
 	print $out "extern const char *${prefix}_arg_get(int);\n\n";
 	for my $option (grep { !defined $_->{reference} } @options) {
@@ -880,8 +880,8 @@ sub print_impl {
 	print $out "}\n\n";
 
 	# print opt_parse / ${prefix}_parse
-	print $out "void ${prefix}_parse(int argc, const char **argv)\n{\n";
-	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
+	print $out "void ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result)\n{\n";
+	print $out "\tresult->argc = argc;\n\tresult->argv = argv;\n";
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
@@ -921,9 +921,9 @@ sub print_impl {
 			print $out "\t\t}\n";
 
 			print $out "\t\t" . (join "\n\t\telse ", map { "if (streq(option_arg, " . cstring($_) . "))\n\t\t\toption_arg = " . cstring($replace{$_}) . ";" } keys %replace) . "\n" if %replace;
-			print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t", "option_name", "${prefix}_var_$name", $o, "option_arg");
-			print_verify($out, "\t\t", "option_name", "${prefix}_var_$name", "option_arg", $o->{verify}) if $o->{verify};
+			print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
+			&$assign_func($out, "\t\t", "option_name", "result->${name}_value", $o, "option_arg");
+			print_verify($out, "\t\t", "option_name", "result->${name}_value", "option_arg", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
@@ -931,15 +931,15 @@ sub print_impl {
 				# --flag, -f
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
-				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
+				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
-				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
+				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\tgoto next_char;\n\t}\n";
 			}
@@ -978,6 +978,7 @@ sub print_impl {
 	my $maxargs = get_args_max_count();
 	print $out "\tif (nargs < $minargs)\n\t\tdo_help(1);\n" if ($minargs != 0);
 	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(1);\n" if (defined $maxargs);
+	print $out "\tresult->nargs = nargs;\n\tresult->args = argv + argc - nargs;\n";
 	print $out "\treturn;\n";
 
 	print $out "} /* end of: ${prefix}_parse */\n\n";
