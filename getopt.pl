@@ -642,8 +642,7 @@ sub print_do_help_function {
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
-	print $out "\tif (die_usage)\n";
-	print_exit_call($out,"\t\t",$config{die_status} // "FAILURE");
+	print $out "\tif (die_usage)\n\t\treturn;\n";
 
 	print_fputs($out, "\t", wrap("", $indent, $help{description}, $pagewidth), "\n", $stream) if $help{description};
 	if ($help{show_args} eq "yes") {
@@ -779,22 +778,27 @@ sub print_impl {
 	print_do_help_function($out) if ($any_help_option || get_args_min_count() != 0 || defined get_args_max_count);
 	print_do_version_function($out) if ($any_version_option);
 
-	print $out "PRIVATE void warn_unknown(const char *option)\n{\n";
+	print $out "#define warn_unknown(_o) do { msg_unknown(_o); return -1; } while (0)\n" if ($config{unknown} // "die") eq "die";
+	print $out "#define warn_unknown(_o) do { msg_unknown(_o); } while (0)\n" if ($config{unknown} // "die") eq "warn";
+	print $out "#define warn_unknown(_o) do { } while (0)\n" if ($config{unknown} // "die") eq "ignore";
+	print $out "PRIVATE void msg_unknown(const char *option)\n{\n";
 	print $out "\tfprintf(stderr, " . cstring($lang{opt_unknown}) . " \"\\n\", option);\n";
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if ($config{unknown} // "die") eq "die";
+	print_exit_call($out, "\t", $config{die_status}) if $config{die_status} and ($config{unknown} // "die") eq "die";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_no_value(const char *option)\n{\n@;
+	print $out "#define die_no_value(_o) do { msg_no_value(_o); return -1; } while (0)\n";
+	print $out qq @PRIVATE void msg_no_value(const char *option)\n{\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
+	print_exit_call($out, "\t", $config{die_status}) if $config{die_status};
 	print $out "}\n\n";
 
 	print $out "PRIVATE int streq(const char *a, const char *b)\n{\n\treturn !strcmp(a, b);\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value)\n{\n@;
+	print $out "#define die_invalid_value(_o, _v) do { msg_invalid_value((_o), (_v)); return -1; } while (0)\n";
+	print $out qq @PRIVATE void msg_invalid_value(const char *option, const char *value)\n{\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_bad_val}) . qq @ "\\n", option, value);\n@;
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
+	print_exit_call($out, "\t", $config{die_status}) if $config{die_status};
 	print $out "}\n\n";
 
 	print $out "PRIVATE const char *skip_unique_option_name(const char *word, const char *name)\n{\n";
@@ -901,8 +905,12 @@ sub print_impl {
 	print $out "\tif (permute) {\n\t\tmemcpy(argv + 1, opts, nopts * sizeof(char *));\n\t\tmemcpy(argv + 1 + nopts, args, nargs * sizeof(char *));\n\t}\n";
 	my $minargs = get_args_min_count();
 	my $maxargs = get_args_max_count();
-	print $out "\tif (nargs < $minargs)\n\t\tdo_help(argv[0], 1);\n" if ($minargs != 0);
-	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(argv[0], 1);\n" if (defined $maxargs);
+	my $args_condition = join " || ", ($minargs != 0 ? ("nargs < $minargs") : (), defined $maxargs ? ("nargs > $maxargs") : ());
+	if ($args_condition) {
+		print $out "\tif ($args_condition) {\n\t\tdo_help(argv[0], 1);\n";
+		print_exit_call($out, "\t\t", $config{die_status}) if $config{die_status};
+		print $out "\t\treturn -1;\n\t}\n";
+	}
 	print $out "\tresult->nargs = nargs;\n\tresult->args = argv + argc - nargs;\n";
 	print $out "\treturn 0;\n";
 
