@@ -581,7 +581,7 @@ sub print_header {
 	declare_struct($out);
 	declare_accessors($out);
 
-	print $out "extern void ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result);\n\n";
+	print $out "extern int ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result);\n\n";
 
 	print $out "#ifdef __cplusplus\n} /* extern \"C\" */\n#endif /* __cplusplus */\n\n";
 
@@ -806,7 +806,7 @@ sub print_impl {
 	print $out "}\n\n";
 
 	# print opt_parse / ${prefix}_parse
-	print $out "void ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result)\n{\n";
+	print $out "int ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result)\n{\n";
 	print $out "\tresult->argc = argc;\n\tresult->argv = argv;\n";
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
@@ -904,7 +904,7 @@ sub print_impl {
 	print $out "\tif (nargs < $minargs)\n\t\tdo_help(argv[0], 1);\n" if ($minargs != 0);
 	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(argv[0], 1);\n" if (defined $maxargs);
 	print $out "\tresult->nargs = nargs;\n\tresult->args = argv + argc - nargs;\n";
-	print $out "\treturn;\n";
+	print $out "\treturn 0;\n";
 
 	print $out "} /* end of: ${prefix}_parse */\n\n";
 	close $out;
