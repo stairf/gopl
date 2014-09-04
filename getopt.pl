@@ -129,46 +129,6 @@ sub declare_var {
 	print $out ";\n\n";
 } # sub declare_var
 
-# print a macro to make one function an alias of another function
-sub print_alias {
-	my ($out, $fname, $name, $val) = @_;
-	print $out "#define ${prefix}_${fname}_$name ${prefix}_${fname}_$val\n\n";
-} #sub print_alias
-
-
-#declare the C "get" function
-sub declare_get_func {
-	my ($out, $ctype, $varname, $modifiers) = @_;
-	$varname =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$varname(void);\n\n";
-} # sub declare_get_func
-
-#declare the C "has" function
-sub declare_has_func {
-	my ($out, $varname, $modifiers) = @_;
-	$varname =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$varname(void);\n\n";
-} # sub declare_has_func
-
-#print the C "get" function
-sub print_get_func {
-	my ($out, $ctype, $opt, $modifiers, $name) = @_;
-	return unless $ctype;
-	$opt =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$opt(void)\n{\n\treturn ${prefix}_var_$name;\n}\n\n";
-} # sub print_get_func
-
-# print the C "has" function
-sub print_has_func {
-	my ($out, $opt, $modifiers, $name) = @_;
-	$opt =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$opt(void)\n{\n\treturn ${prefix}_varhas_$name;\n}\n\n";
-} # sub print_has_func
-
 # print an enum
 sub print_enum {
 	my ($out, $long, $short, $values) = @_;
@@ -299,13 +259,13 @@ sub flag_print_assign {
 sub help_print_assign {
 	# this is the "assignment" for a help option
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
-	print $out $indent . "do_help(0);\n";
+	print $out $indent . "do_help(argv[0], 0);\n";
 } # sub help_print_assign
 
 # print assignment for type "version" --> call version function
 sub version_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
-	print $out $indent . "do_version();\n";
+	print $out $indent . "do_version(argv[0]);\n";
 } # sub version_print_assign
 
 # print assignment for type "callback"
@@ -622,22 +582,6 @@ sub print_header {
 	declare_accessors($out);
 
 	print $out "extern void ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result);\n\n";
-	print $out "extern int ${prefix}_arg_count(void);\n";
-	print $out "extern const char *${prefix}_arg_get(int);\n\n";
-	for my $option (grep { !defined $_->{reference} } @options) {
-		my $typename = $option->{type};
-		my $type = $types->{$typename};
-		my @longnames = split ",", $option->{long} =~ s/-/_/gr;
-		my $name = $option->{short} // shift @longnames;
-		if ($type->{generate_has}) {
-			declare_has_func($out, $name, "extern");
-			print_alias($out, "has", $_, $name) for @longnames;
-		}
-		if ($type->{generate_get}) {
-			declare_get_func($out, $type->{ctype}, $name, "extern");
-			print_alias($out, "get", $_, $name) for @longnames;
-		}
-	}
 
 	print $out "#ifdef __cplusplus\n} /* extern \"C\" */\n#endif /* __cplusplus */\n\n";
 
@@ -692,8 +636,9 @@ sub print_do_help_function {
 	my $indent2 = $help{indent2} // " " x 25;
 	my $colwidth = scalar (split //, $indent2);
 	my $pagewidth = $config{pagewidth} // 80;
-	print $out "PRIVATE void do_help(int die_usage)\n{\n";
-	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "save_argv[0]").qq@);\n@;
+	print $out "PRIVATE void do_help(const char *argv0, int die_usage)\n{\n";
+	print $out "\t(void) argv0;\n" if $config{progname};
+	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "argv0").qq@);\n@;
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
@@ -737,10 +682,11 @@ sub print_do_help_function {
 #print the do_version function
 sub print_do_version_function {
 	my ($out) = @_;
-	my $progname = cstring($config{progname}) // "save_argv[0]";
+	my $progname = cstring($config{progname}) // "argv0";
 	my $stream = $version{output} // "stdout";
 	my $indent = $version{indent} // " " x2;
-	print $out "PRIVATE void do_version(void)\n{\n";
+	print $out "PRIVATE void do_version(const char *argv0)\n{\n";
+	print $out "\t(void) argv0;\n" if $config{progname};
 	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
 	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
 	print $out qq @\tfputs("\\n", $stream);\n@;
@@ -828,30 +774,10 @@ sub print_impl {
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
 	declare_struct($out);
 	declare_accessors($out);
-	print $out "static const char **save_argv;\nstatic int save_argc;\n";
-	print $out "static int first_arg;\n\n";
 
 	# print the do_help,do_version function
 	print_do_help_function($out) if ($any_help_option || get_args_min_count() != 0 || defined get_args_max_count);
 	print_do_version_function($out) if ($any_version_option);
-
-	for my $option (grep { !defined $_->{reference} } @options) {
-		my $typename = $option->{type};
-		my $type = $types->{$typename};
-		my $name = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
-		declare_var ($out, $type->{ctype}, $option->{name}, $option->{init}, "static", $type->{generate_has});
-		print_get_func($out, $type->{ctype}, $name, "", $option->{name}) if $type->{generate_get};
-		print_has_func($out, $name, "", $option->{name}) if $type->{generate_has};
-		print $out "\n";
-	}
-
-	print $out "\n";
-	print $out "int ${prefix}_arg_count(void)\n{\n\treturn save_argc - first_arg;\n}\n\n";
-
-	print $out "const char *${prefix}_arg_get(int index)\n{";
-	print $out "\n\tif (index < 0 || first_arg + index > save_argc)\n\t\treturn NULL;" if $config{indexcheck};
-	print $out "\n\treturn save_argv[first_arg + index];\n";
-	print $out "}\n\n";
 
 	print $out "PRIVATE void warn_unknown(const char *option)\n{\n";
 	print $out "\tfprintf(stderr, " . cstring($lang{opt_unknown}) . " \"\\n\", option);\n";
@@ -973,11 +899,10 @@ sub print_impl {
 	print $out "state_stop_option_processing:\n\tif (permute)\n\t\tmemcpy(args + nargs, argv + word_idx, (argc - word_idx) * sizeof(char *));\n\tnargs += argc - word_idx;\n";
 	print $out "state_check_args:\n";
 	print $out "\tif (permute) {\n\t\tmemcpy(argv + 1, opts, nopts * sizeof(char *));\n\t\tmemcpy(argv + 1 + nopts, args, nargs * sizeof(char *));\n\t}\n";
-	print $out "\tfirst_arg = argc - nargs;\n";
 	my $minargs = get_args_min_count();
 	my $maxargs = get_args_max_count();
-	print $out "\tif (nargs < $minargs)\n\t\tdo_help(1);\n" if ($minargs != 0);
-	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(1);\n" if (defined $maxargs);
+	print $out "\tif (nargs < $minargs)\n\t\tdo_help(argv[0], 1);\n" if ($minargs != 0);
+	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(argv[0], 1);\n" if (defined $maxargs);
 	print $out "\tresult->nargs = nargs;\n\tresult->args = argv + argc - nargs;\n";
 	print $out "\treturn;\n";
 
