@@ -464,7 +464,7 @@ sub declare_struct {
 		my $type = $types->{$o->{type}};
 		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
 	}
-	for my $o (@options) {
+	for my $o (grep { !defined $_->{exit} } @options) {
 		my $type = $types->{$o->{type}};
 		print $out "\tbool $o->{name}_given;\n" if $type->{generate_has};
 	}
@@ -482,7 +482,7 @@ sub declare_accessors {
 		my $type = $types->{$o->{type}};
 		my @names = map { s/-/_/gr } split ",", $o->{long};
 		push @names, $o->{short} if $o->{short};
-		if ($type->{generate_has}) {
+		if ($type->{generate_has} and !defined $o->{exit}) {
 			print $out "#define ${prefix}_${_}_given(_x) ((_x).$o->{name}_given)\n" for @names;
 		}
 		if ($type->{generate_get}) {
@@ -856,7 +856,7 @@ sub print_impl {
 			print $out "\t\t}\n";
 
 			print $out "\t\t" . (join "\n\t\telse ", map { "if (streq(option_arg, " . cstring($_) . "))\n\t\t\toption_arg = " . cstring($replace{$_}) . ";" } keys %replace) . "\n" if %replace;
-			print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
+			print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
 			&$assign_func($out, "\t\t", "option_name", "result->${name}_value", $o, "option_arg");
 			print_verify($out, "\t\t", "option_name", "result->${name}_value", "option_arg", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
@@ -867,7 +867,7 @@ sub print_impl {
 				# --flag, -f
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
-				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
+				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
@@ -875,7 +875,7 @@ sub print_impl {
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
-				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
+				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
 				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
