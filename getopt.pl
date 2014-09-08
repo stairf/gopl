@@ -411,14 +411,14 @@ my $types = {
 	},
 	help => {
 		needs_val => 0, # TODO: topic --> "optional"
-		generate_has => 0,
+		generate_has => 1,
 		generate_get => 0,
 		print_assign => sub { help_print_assign(@_) },
 		may_verify => 0,
 	},
 	version => {
 		needs_val => 0,
-		generate_has => 0,
+		generate_has => 1,
 		generate_get => 0,
 		print_assign => sub { version_print_assign(@_) },
 		may_verify => 0,
