@@ -459,11 +459,14 @@ sub ref_print_assign {
 sub declare_struct {
 	my ($out) = @_;
 	print $out "struct ${prefix}_options {\n";
-	print $out "\tint argc;\n\tconst char **argv;\n\tint nargs;\n\tconst char **args;\n";
+	print $out "\tint argc;\n\tint nargs;\n\tconst char **argv;\n\tconst char **args;\n";
+	for my $o (sort { $a->{type} <=> $b->{type} } @options) {
+		my $type = $types->{$o->{type}};
+		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
+	}
 	for my $o (@options) {
 		my $type = $types->{$o->{type}};
 		print $out "\tbool $o->{name}_given;\n" if $type->{generate_has};
-		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
 	}
 	print $out "}; /* end of struct ${prefix}_options */\n\n";
 } # sub declare_struct
