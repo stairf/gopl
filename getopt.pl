@@ -524,6 +524,8 @@ sub verify_config {
 		die "option #$cnt: the verify function name must be a C identifier\n" if defined $option->{verify} and $option->{verify} !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/;
 		die "option #$cnt: the callback function name must be a C identifier\n" if defined $option->{callback} and $option->{callback} !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/;
 		die "option #$cnt: the optional property must be either yes or no\n" if defined $option->{optional} and !is_one_of($option->{optional}, "yes", "no");
+		die "option #$cnt: the properties break and exit conflict\n" if defined $option->{exit} and defined $option->{break} and $option->{break} eq "yes";
+		die "option #$cnt: the property break must be either 'yes' or 'no'" if defined $option->{break} and !is_one_of($option->{break}, "yes", "no");
 		$option->{name} = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
@@ -858,6 +860,7 @@ sub print_impl {
 			&$assign_func($out, "\t\t", "option_name", "result->${name}_value", $o, "option_arg");
 			print_verify($out, "\t\t", "option_name", "result->${name}_value", "option_arg", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+			print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
 			if ($o->{long}) {
@@ -867,6 +870,7 @@ sub print_impl {
 				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
@@ -874,6 +878,7 @@ sub print_impl {
 				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_char;\n\t}\n";
 			}
 		}
