@@ -512,6 +512,13 @@ sub verify_config {
 		}
 		die "option #$cnt has no name\n" unless (defined $option->{short} or defined $option->{long});
 		die "option #$cnt has no type\n" unless (defined $option->{type});
+		if ($option->{type} eq "switch") {
+			my @lnames = defined $option->{long} ? split /,/, $option->{long} : ();
+			unshift @lnames, $option->{short} if defined $option->{short};
+			$option->{type} = "flag";
+			my $no_option = { type => "flag", reference => "$lnames[0]", long => (join ",", map { "no-$_" } @lnames), value => $option->{init} // "0" };
+			@options = map { $_ == $option  ? ($option, $no_option) : ($_) } @options;
+		}
 		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{type}});
 		die "option #$cnt: invalid short name " . $option->{short} unless (($option->{short} // "a") =~ /^[a-zA-Z0-9]$/);
 		die "option #$cnt: the type $option->{type} must not have a verify function\n" unless (!$option->{verify} or $types->{$option->{type}}->{may_verify});
