@@ -850,7 +850,7 @@ sub print_impl {
 	print $out "\telse if (argv[word_idx][0] != '-')\n\t\tgoto state_arg;\n";
 	print $out "\telse if (argv[word_idx][1] == '\\0')\n\t\tgoto state_arg;\n";
 	print $out "\telse if (argv[word_idx][1] != '-')\n\t\tgoto short_name;\n";
-	print $out "\telse if (argv[word_idx][1] == '-' && argv[word_idx][2] =='\\0')\n\t\tgoto state_ddash;\n";
+	print $out "\telse if (argv[word_idx][1] == '-' && argv[word_idx][2] == '\\0')\n\t\tgoto state_ddash;\n";
 	print $out "\topts[nopts++] = argv[word_idx];\n\tgoto state_0;\n";
 	print $out "unknown_long:\n";
 	print $out "\twarn_unknown(argv[word_idx]);\n" if $config{unknown} ne "ignore";
