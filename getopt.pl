@@ -643,10 +643,10 @@ sub print_do_help_function {
 	my $pagewidth = $config{pagewidth} // 80;
 	print $out "PRIVATE void do_help(const char *argv0, int die_usage)\n{\n";
 	print $out "\t(void) argv0;\n" if $config{progname};
-	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "argv0").qq@);\n@;
+	print $out "\tfprintf($stream, " . cstring($lang{help_usage}) . ", " . (cstring($config{progname}) // "argv0"). ");\n";
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
-	print $out qq @\tfputs($argdesc, $stream);\n@;
-	print $out qq @\tfputs("\\n\\n", $stream);\n@;
+	print $out "\tfputs($argdesc, $stream);\n";
+	print $out "\tfputs(\"\\n\\n\", $stream);\n";
 	print $out "\tif (die_usage)\n\t\treturn;\n";
 
 	print_fputs($out, "\t", wrap("", $indent, $help{description}, $pagewidth), "\n", $stream) if $help{description};
@@ -680,7 +680,7 @@ sub print_do_help_function {
 		print_fputs($out, "\t", $text, "\n", $stream) if $text;
 	}
 	print_fputs($out, "\t", wrap("", $indent, $help{info}, $pagewidth), "\n", $stream) if $help{info};
-	print $out qq @}\n\n@;
+	print $out "}\n\n";
 } # sub print_do_help_function
 
 #print the do_version function
@@ -691,9 +691,9 @@ sub print_do_version_function {
 	my $indent = $version{indent} // " " x2;
 	print $out "PRIVATE void do_version(const char *argv0)\n{\n";
 	print $out "\t(void) argv0;\n" if $config{progname};
-	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
-	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
-	print $out qq @\tfputs("\\n", $stream);\n@;
+	print $out "\tfprintf($stream, \"%s %s\\n\", $progname, $version{version});\n" if ($version{version});
+	print $out "\tfputs(" . cstring($version{copyright} . "\n") . ", $stream);\n" if ($version{copyright});
+	print $out "\tfputs(\"\\n\", $stream);\n";
 	print_fputs($out, "\t", wrap("", $indent, $version{info}, $config{pagewidth} // 80), "\n", $stream) if $version{info};
 	print $out "}\n\n";
 } # sub print_do_version_function
@@ -792,8 +792,8 @@ sub print_impl {
 	print $out "}\n\n";
 
 	print $out "#define die_no_value(_o) do { msg_no_value(_o); return -1; } while (0)\n";
-	print $out qq @PRIVATE void msg_no_value(const char *option)\n{\n@;
-	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
+	print $out "PRIVATE void msg_no_value(const char *option)\n{\n";
+	print $out "\tfprintf(stderr, " . cstring($lang{opt_no_val} . "\n") . ", option);\n";
 	print_exit_call($out, "\t", $config{die_status}) if $config{die_status};
 	print $out "}\n\n";
 
@@ -801,8 +801,8 @@ sub print_impl {
 	print $out "}\n\n";
 
 	print $out "#define die_invalid_value(_o, _v) do { msg_invalid_value((_o), (_v)); return -1; } while (0)\n";
-	print $out qq @PRIVATE void msg_invalid_value(const char *option, const char *value)\n{\n@;
-	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_bad_val}) . qq @ "\\n", option, value);\n@;
+	print $out "PRIVATE void msg_invalid_value(const char *option, const char *value)\n{\n";
+	print $out "\tfprintf(stderr, " . cstring($lang{opt_bad_val} . "\n") . ", option, value);\n";
 	print_exit_call($out, "\t", $config{die_status}) if $config{die_status};
 	print $out "}\n\n";
 
