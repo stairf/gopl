@@ -1,0 +1,365 @@
+=== GOPL DOCUMENTATION.txt ===
+
+This documentation describes how GOPL transforms a configuration file into
+code. The configuration file is a Perl script, which can modify global
+variables. Technically, the perl script can do anything, but GOPL just executes
+them and then reads the global variables described below.
+
+In total, the configuration file can modify the following global variables:
+
+  Variable  Description
+  --------  -----------------------------------
+  @options  command-line options
+  @args     command-line non-option arguments
+  %config   general configuration
+  %help     help text configuration
+  %version  version text configuration
+  %lang     message texts for localization
+
+In the following, each of these variables is described in detail.
+
+
+== 1. The @options array ==
+
+The @options array is a list of hash references, where each hash reference
+represents one option. By default, the @options array is empty. A typical entry
+looks like this:
+    {
+        short => "h",
+        long => "help",
+        type => "help",
+        description => "show the help text",
+    }
+
+The configuration file might set any key in the hash reference, and GOPL will
+ignore all keys that it does not know. In contrast, the known keys describe the
+option and how the command line parser behaves when it finds that option. The
+known keys are called option properties.
+
+The following option properties exist:
+  Property     Description
+  -------      --------------------------------------------------------------
+  short        Short name
+                 The short name contains exactly one alphanumeric character. It
+                 can be given in the command line using a single dash. Short
+                 names can be combined in one argv element as specified by
+                 POSIX. Each option must have at least one name. Therefore, the
+                 short name is required only if no long name is specified (see
+                 below at option property `long').
+
+  long         Long name
+                 A long name contains multiple characters and can contain
+                 dashes. In the command line, the option can be specified after
+                 two dashes, as described by the GNU calling convention. An
+                 option can have multiple long names, which must be separated
+                 by a comma. When a short name is given, then the long name is
+                 optional.
+
+  type         Option type
+                 The option type describes what the parser does when the option
+                 name is found in the command line. Furthermore, the C
+                 interface depends on option types. It is required for each
+                 option. See below for a list of available option types.
+
+  description  Option description in the help text
+                 This text is displayed in the help text to describe the
+                 option. This property is optional. However, it should be given
+                 for usability reasons.
+
+  arg          Option argument name
+                 The name of the option argument in the help text. It is
+                 optional. When the option type does not take an argument, the
+                 value is completely ignored. The default value is "ARG",
+                 unless for enum options. There, a description is created by
+                 the available enum values.
+
+  exit         Exit value
+                 When the exit property is set, the command line parser calls
+                 the C function exit() after option processing. This is useful
+                 for the option types `help' and `version'. Two special values
+                 exist: "SUCCESS" and "FAILURE" represent the constants
+                 EXIT_SUCCESS and EXIT_FAILURE, respectively. All other
+                 values are directly passed to the exit() function call.
+
+  init         Initial option value
+                 This property specifies an initial value for the option. No
+                 type check is performed, so it can be a macro. When the option
+                 type is `string', then the value should probably be quoted
+                 using the cstring() function. This property is optional. When
+                 no initial value is specified, the behaviour of the opt_get_*
+                 functions is undefined unless the corresponding opt_has_*
+                 function returns true.
+
+  verify       Option value verification function
+                 The parser verifies option values using this function. After
+                 setting the option value, the option value is passed
+                 (converted to its C type) to the verify function. When the
+                 function returns zero, then the value is considered illegal.
+                 Then, the command line parser prints an error message and
+                 terminates. Not all option types support verify functions.
+
+  callback     Callback function
+                 The option type `callback' calls an external function to
+                 process the option value. This function is specified using the
+                 callback property. Therefore, the option type callback
+                 requires this property, and all other option types do not
+                 support it.
+
+  values       Set of enum values
+                 This property is required when the option type is `enum',
+                 otherwise it must not be specified. The value is a
+                 comma-separated list of values that are accepted for this
+                 particular enum option. All other values are rejected.
+
+  replace      Early input replacement mapping
+                 This property allows early replacement of some user input by
+                 other option values, before it is checked by anything else.
+                 Thus, user-interface names can be converted into its internal
+                 representations. The value must be a hash reference. There,
+                 each key-value pair represents a replacement mapping. When one
+                 of the keys is specified in the command line, it is replaced
+                 by the corresponding value.
+
+  optional     Optional option argument
+                 This property can be either "yes" or "no". The default is
+                 "no". When it is set to "yes", then the option does not
+                 require an argument. When the "default" property is set, then
+                 that value is taken as the option value. Otherwise, the option
+                 type must be able to handle null option values.
+
+  default      Fall-back option argument
+                 Some option types cannot handle options without a value. Then,
+                 the default property provides the fall-back value. This
+                 property is optional when the type is able to handle options
+                 without values, such as the "string" type. Options where the
+                 "optional" property equals "no" do never need a default value.
+                 All other options require this property.
+
+  reference    Option reference
+                 Flag options can be references. Then, they do not provide any
+                 C function. Instead, they assign a value to any other option.
+                 The value of this option must be a name of the referenced
+                 option. Not all option types support being referenced.
+
+  value        Reference value
+                 Specify the value of reference options. This property is
+                 optional and the default value is 1. Two interpretations
+                 exist, depending on the type of the referenced option. When it
+                 has the option type "flag", then the value is assigned to the
+                 (integer) variable directly. Otherwise, it is automatically
+                 quoted as a C string and passed to the assignment of the
+                 referenced option. The difference is that only flag
+                 assignments support macros.
+
+The option type is very important. It describes most of the behavior of the
+command line parser when it finds an option name in the argument vector. The
+column `Value' shows which option type takes a value, and which option type
+supports optional values. When the option type does not support optional option
+values, then the `default' property is required. The `Verify' column indicates
+whether the type supports the `verify' property.
+  Name     C type         Value  C interface  Verify  Description
+  -------  ------         -----  -----------  ------  -------------------------
+  help     <none>         N?     <none>       N       Display the help text
+  version  <none>         N      <none>       N       Display the version
+                                                       information
+  int      int            Y      val+giv      Y       integer value
+  lint     long int       Y      val+giv      Y       integer value
+  llint    long long int  Y      val+giv      Y       integer value
+  xint     int            Y      val+giv      Y       hexadecimal integer value
+  lxint    long int       Y      val+giv      Y       hexadecimal integer value
+  llxint   long long int  Y      val+giv      Y       hexadecimal integer value
+  char     char           Y      val+giv      Y       one character value
+  string   const char*    (Y)    val+giv      Y       any string value
+  float    float          Y      val+giv      Y       floating point number
+                                                       value
+  lfloat   double         Y      val+giv      Y       floating point number
+                                                       value
+  llfloat  long double    Y      val+giv      Y       floating point number
+                                                       value
+  flag     <none>         N      val          N       true or false
+  switch   <none>         N      val          N       true or false
+  counter  <none>         N      val          N       counter increment
+  enum     int            Y      val+giv      Y       predefined set of
+                                                       accepted values
+  callback <none>         (Y)    <none>       N       value handled by external
+                                                       function
+In this table, *val* and *giv* mean that a *_value(), or a *_given() accessor
+macro, respectively, is generated for options of this type.
+
+Future versions might support help topics. Then, the help function takes an
+optional value, which is the name of the help topic.
+
+The difference of the flag, switch and counter options are:
+  - The flag option can only be turned on.
+  - The counter option counts the appearances of the option in the argument
+    vector. Each time that option is found, a counter is incremented. This is
+    particularly useful for verbose options.
+  - The switch option is transformed internally into a flag option.
+    Additionally, a negation option is created, which resets the value. When
+    the name of the option is "foo", then an option "no-foo" is added, which
+    resets the option variable to its initial value.
+
+
+== 2. The @args array ==
+
+The @args array is similar to the @options array. It also contains hash
+references, where each entry is one argument specification. Each argument
+specification describes non-option arguments.
+
+Similar to option specifications, argument specifications can have any key, but
+all unknown keys are ignored. The known keys are called argument properties.
+The following argument properties exist:
+  Property     Description
+  -------      --------------------------------------------------------------
+  name         The argument specification name
+                 The argument name is displayed in the help text and the usage
+                 text. It is required because otherwise the usage text would be
+                 nonsense.
+
+  count        The number of argv elements
+                 An argument specification can represent multiple argv
+                 elements. The count property is not verified for each argument
+                 specification, because the command line parser does not know
+                 which argv element belong to which argument specification.
+                 Instead, it verifies that the total number of non-option
+                 argument is compatible to the argument specifications. The
+                 parser derives a maximum and a minimum number of non-option
+                 arguments, and check both constraints if possible. GOPL
+                 supports the following values, which resemble regular
+                 expressions:
+                 Value  Min  Max
+                 -----  ---  -------
+                 1      1    1
+                 ?      0    1
+                 *      0    -
+                 +      1    -
+  description  The argument description
+                 The description text is displayed in the help text. By
+                 default, the help text does not display the non-option
+                 argument list at all, unless $help{show_args} equals "yes".
+                 When a description is given, it is displayed similar to the
+                 description options property.
+
+
+== 3. The %config hash ==
+The config has specified some general aspects of the generated code. All
+unknown keys are ignored. The following key-value pairs are supported:
+  Key         Default  Value
+  --------    -------  -----------------------------------
+  progname    undef    Program name
+                        The program name is displayed at the help, version and
+                        usage texts. When it is not defined, the first element
+                        in the argv vector is used.
+
+  include     []       Include headers into command line parser
+                        The value must be an array reference, where each entry
+                        looks like '<systemhdr.h>' or '"localhdr.h"'. The
+                        generated code includes these headers.
+
+  unknown     "die"    Handle unknown option names
+                         "die"     prints an error message and calls exit()
+                         "warn"    prints an error message and continues
+                         "ignores" prints no error message and continues
+
+  prefix      "opt"    Command line parser namespace
+                         All globally visible command line parser symbol names
+                         start with this prefix.
+
+  iguard      undef    Header include guard
+                         Specify the name of an include guard of the header
+                         function. When it is defined, that include guard
+                         protects the header from multiple includes.
+
+  pagewidth   80       Message text width
+                         This property specifies the number of characters that
+                         can be printed in one row on the output terminal. The
+                         help and version texts are wrapped automatically so
+                         that it fits into the terminal.
+
+  die_status  undef  Parser error code
+                         When defined, the parser calls exit() on error with
+                         that status as arguments. The values are equivalent to
+                         the exit option property. When not defined, then the
+                         parser returns a negative error value.
+
+
+== 4. The %help hash ==
+The help hash specifies the content of the help text. The following keys exist:
+  Key          Default  Value
+  --------     -------  -----------------------------------
+  output       stdout   Help text output stream
+                         The value should be either "stdout" or "stderr"
+  description  undef    Program description
+                         This text is displayed at the beginning of the help
+                         text. It should contain a brief description of the
+                         program.
+  info         undef    Program information
+                         This text is displayed at the end of the help text. It
+                         is intended to give detailed information about the
+                         program.
+  show_options "yes"    Show the options list
+                         When set to "yes", the help text contains a list of
+                         all available options. When set to "no", that list is
+                         not displayed.
+  show_args    "no"     Show the argument specification list
+                         This property is similar to $help{show_options}, but
+                         it specifies whether the help text contains the list
+                         of argument specifications.
+  indent       " "x2    Help text indent
+                         This indent is used to format the help text. It should
+                         not contain anything else than space (' ') characters.
+  indent2      " "x25   Second help text indent
+                         The second index specifies the width of the left
+                         column in the help text. Like $help{indent}, it should
+                         only contain space characters.
+
+
+== 5. The %version hash ==
+The %version hash is similar to the %help hash, but it controls the output of
+version options. The following keys can be used to control the output of the
+version text:
+  Key          Default  Value
+  --------     -------  -----------------------------------
+  output       stdout   Version text output stream
+                         See $help{output}
+  version      ""       Version string
+                         The version string, like "1.0". It must be quoted for
+                         both C and perl, which allows that the version number
+                         is a C macro.
+  copyright    undef    Copyright statement
+                         This property can contain a copyright statement that
+                         is then displayed in the version text.
+  info         undef    Version information text
+                         Like $help{info}, the version information text is
+                         printed at the end of the version text. It can specify
+                         additional information.
+  indent       " "x2    Version indent text
+                         See $help{indent}
+
+
+== 6. The %lang hash ==
+The %lang hash contains all strings that the GOPL parser prints, except for the
+ones that are specified somewhere else in the configuration. For instance, the
+option names are taken from the @options list. All other text is specified by
+the %lang hash. The following entries exist:
+  Name          Format   Description
+  ------------  -------  ------------------------------------------------------
+  help_usage    %s       Usage text
+                          The format specifier takes the program name, which is
+                          taken from $config{progname}, if specified,  or it is
+                          taken from argv[0].
+  opt_args      -        Text at start of argument specification list
+                          The default value is "ARGUMENTS:"
+  help_options  -        Text at start of options list
+                          The default value is "OPTIONS:"
+  opt_unknown   %s       Error message for unknown options
+                          The format specifier takes the option name, which is
+                          given as a string.
+  opt_no_val    %s       Error message for missing option values
+                          The format specifier takes the option name.
+  opt_bad_val   %s %s    Error message for invalid values
+                          The first format specified takes the option name, the
+                          second one takes the (invalid) value found in the
+                          command line.
+
+
