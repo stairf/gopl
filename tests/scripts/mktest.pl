@@ -92,7 +92,14 @@ print $out qq @
 
 int main(int argc, const char **argv)
 {
-	opt_parse(argc, argv);
+	struct opt_options o;
+	memset(&o, 0, sizeof(o));
+	int x = opt_parse(argc, argv, &o);
+	if (x < 0)
+		exit(EXIT_FAILURE);
+	else if (x > 0)
+		exit(EXIT_SUCCESS);
+
 @;
 
 for my $o (@options) {
@@ -103,28 +110,28 @@ for my $o (@options) {
 	die "unknown type: $type\n" unless $t;
 	if ($t->{generate_has}) {
 		print $out qq @
-			if (opt_has_$_()) {
-				printf("$_='$t->{format}' ", opt_get_$_());
+			if (opt_${_}_given(o)) {
+				printf("$_='$t->{format}' ", opt_${_}_value(o));
 			}
 		@ for split ',', $long;
 		print $out qq @
-			if (opt_has_$short()) {
-				printf("$short='$t->{format}' ", opt_get_$short());
+			if (opt_${short}_given(o)) {
+				printf("$short='$t->{format}' ", opt_${short}_value(o));
 			}
 		@ if $short;
 	} elsif ($t->{generate_get}) {
 		print $out qq @
-			printf("$_='$t->{format}' ", opt_get_$_());
+			printf("$_='$t->{format}' ", opt_${_}_value(o));
 		@ for split ',', $long;
 		print $out qq @
-			printf("$short='$t->{format}' ", opt_get_$short());
+			printf("$short='$t->{format}' ", opt_${short}_value(o));
 		@ if $short;
 	}
 }
 
 print $out qq @
-	for (int i = 0; i < opt_arg_count(); ++i) {
-		printf("'%s' ", opt_arg_get(i));
+	for (int i = 0; i < opt_nargs(o); ++i) {
+		printf("'%s' ", opt_arg(o,i));
 	}
 	printf("\\n");
 	exit(0);

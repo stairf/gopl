@@ -129,46 +129,6 @@ sub declare_var {
 	print $out ";\n\n";
 } # sub declare_var
 
-# print a macro to make one function an alias of another function
-sub print_alias {
-	my ($out, $fname, $name, $val) = @_;
-	print $out "#define ${prefix}_${fname}_$name ${prefix}_${fname}_$val\n\n";
-} #sub print_alias
-
-
-#declare the C "get" function
-sub declare_get_func {
-	my ($out, $ctype, $varname, $modifiers) = @_;
-	$varname =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$varname(void);\n\n";
-} # sub declare_get_func
-
-#declare the C "has" function
-sub declare_has_func {
-	my ($out, $varname, $modifiers) = @_;
-	$varname =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$varname(void);\n\n";
-} # sub declare_has_func
-
-#print the C "get" function
-sub print_get_func {
-	my ($out, $ctype, $opt, $modifiers, $name) = @_;
-	return unless $ctype;
-	$opt =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "$ctype ${prefix}_get_$opt(void)\n{\n\treturn ${prefix}_var_$name;\n}\n\n";
-} # sub print_get_func
-
-# print the C "has" function
-sub print_has_func {
-	my ($out, $opt, $modifiers, $name) = @_;
-	$opt =~ s/-/_/g;
-	$modifiers .= " " if ($modifiers);
-	print $out $modifiers . "bool ${prefix}_has_$opt(void)\n{\n\treturn ${prefix}_varhas_$name;\n}\n\n";
-} # sub print_has_func
-
 # print an enum
 sub print_enum {
 	my ($out, $long, $short, $values) = @_;
@@ -299,13 +259,13 @@ sub flag_print_assign {
 sub help_print_assign {
 	# this is the "assignment" for a help option
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
-	print $out $indent . "do_help(0);\n";
+	print $out $indent . "do_help(argv[0], 0);\n";
 } # sub help_print_assign
 
 # print assignment for type "version" --> call version function
 sub version_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
-	print $out $indent . "do_version();\n";
+	print $out $indent . "do_version(argv[0]);\n";
 } # sub version_print_assign
 
 # print assignment for type "callback"
@@ -451,14 +411,14 @@ my $types = {
 	},
 	help => {
 		needs_val => 0, # TODO: topic --> "optional"
-		generate_has => 0,
+		generate_has => 1,
 		generate_get => 0,
 		print_assign => sub { help_print_assign(@_) },
 		may_verify => 0,
 	},
 	version => {
 		needs_val => 0,
-		generate_has => 0,
+		generate_has => 1,
 		generate_get => 0,
 		print_assign => sub { version_print_assign(@_) },
 		may_verify => 0,
@@ -490,11 +450,47 @@ sub ref_print_assign {
 		print $out $indent . "goto state_assign_$ref->{reference}->{name}" . ($ref->{reference}->{short} ? "_short" : "_long" ). ";\n";
 	} else {
 		my $assign_func = $rtype->{print_assign};
-		&$assign_func($out, $indent, $option, $prefix  . "_var_" . $ref->{reference}->{name}, $ref->{reference}, $src);
+		&$assign_func($out, $indent, $option, "result->$ref->{reference}->{name}_value", $ref->{reference}, $src);
 	}
 	return 1;
 } # sub ref_print_assign
 
+# declare the opt_options struct
+sub declare_struct {
+	my ($out) = @_;
+	print $out "struct ${prefix}_options {\n";
+	print $out "\tint argc;\n\tint nargs;\n\tconst char **argv;\n\tconst char **args;\n";
+	for my $o (sort { $a->{type} <=> $b->{type} } grep { !defined $_->{reference} } @options) {
+		my $type = $types->{$o->{type}};
+		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
+	}
+	for my $o (grep { !defined $_->{exit} } grep { !defined $_->{reference} } @options) {
+		my $type = $types->{$o->{type}};
+		print $out "\tbool $o->{name}_given;\n" if $type->{generate_has};
+	}
+	print $out "}; /* end of struct ${prefix}_options */\n\n";
+} # sub declare_struct
+
+# declare struct member accessor macros
+sub declare_accessors {
+	my ($out) = @_;
+	print $out "#define ${prefix}_argc(_x) ((_x).argc)\n";
+	print $out "#define ${prefix}_argv(_x) ((_x).argv)\n";
+	print $out "#define ${prefix}_nargs(_x) ((_x).nargs)\n";
+	print $out "#define ${prefix}_arg(_x, _i) ((_x).args[(_i)])\n";
+	for my $o (grep { !defined $_->{reference} } @options) {
+		my $type = $types->{$o->{type}};
+		my @names = map { s/-/_/gr } split ",", $o->{long};
+		push @names, $o->{short} if $o->{short};
+		if ($type->{generate_has} and !defined $o->{exit}) {
+			print $out "#define ${prefix}_${_}_given(_x) ((_x).$o->{name}_given)\n" for @names;
+		}
+		if ($type->{generate_get}) {
+			print $out "#define ${prefix}_${_}_value(_x) ((_x).$o->{name}_value)\n" for @names;
+		}
+	}
+	print $out "\n";
+} # sub declare_accessors
 
 # verify the options and the config
 sub verify_config {
@@ -528,6 +524,8 @@ sub verify_config {
 		die "option #$cnt: the verify function name must be a C identifier\n" if defined $option->{verify} and $option->{verify} !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/;
 		die "option #$cnt: the callback function name must be a C identifier\n" if defined $option->{callback} and $option->{callback} !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/;
 		die "option #$cnt: the optional property must be either yes or no\n" if defined $option->{optional} and !is_one_of($option->{optional}, "yes", "no");
+		die "option #$cnt: the properties break and exit conflict\n" if defined $option->{exit} and defined $option->{break} and $option->{break} eq "yes";
+		die "option #$cnt: the property break must be either 'yes' or 'no'" if defined $option->{break} and !is_one_of($option->{break}, "yes", "no");
 		$option->{name} = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
 		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
@@ -585,24 +583,10 @@ sub print_header {
 	print $out "#ifdef __cplusplus\nextern \"C\" {\n#endif /* __cplusplus */\n\n";
 
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
+	declare_struct($out);
+	declare_accessors($out);
 
-	print $out "extern void ${prefix}_parse(int argc, const char **argv);\n\n";
-	print $out "extern int ${prefix}_arg_count(void);\n";
-	print $out "extern const char *${prefix}_arg_get(int);\n\n";
-	for my $option (grep { !defined $_->{reference} } @options) {
-		my $typename = $option->{type};
-		my $type = $types->{$typename};
-		my @longnames = split ",", $option->{long} =~ s/-/_/gr;
-		my $name = $option->{short} // shift @longnames;
-		if ($type->{generate_has}) {
-			declare_has_func($out, $name, "extern");
-			print_alias($out, "has", $_, $name) for @longnames;
-		}
-		if ($type->{generate_get}) {
-			declare_get_func($out, $type->{ctype}, $name, "extern");
-			print_alias($out, "get", $_, $name) for @longnames;
-		}
-	}
+	print $out "extern int ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result);\n\n";
 
 	print $out "#ifdef __cplusplus\n} /* extern \"C\" */\n#endif /* __cplusplus */\n\n";
 
@@ -657,13 +641,13 @@ sub print_do_help_function {
 	my $indent2 = $help{indent2} // " " x 25;
 	my $colwidth = scalar (split //, $indent2);
 	my $pagewidth = $config{pagewidth} // 80;
-	print $out "PRIVATE void do_help(int die_usage)\n{\n";
-	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "save_argv[0]").qq@);\n@;
+	print $out "PRIVATE void do_help(const char *argv0, int die_usage)\n{\n";
+	print $out "\t(void) argv0;\n" if $config{progname};
+	print $out qq @\tfprintf($stream, @ . cstring($lang{help_usage}) . qq @, @ . (cstring($config{progname}) // "argv0").qq@);\n@;
 	my $argdesc = cstring(join " ", map { decorate_argument($_->{count}, $_->{name}) } values @args);
 	print $out qq @\tfputs($argdesc, $stream);\n@;
 	print $out qq @\tfputs("\\n\\n", $stream);\n@;
-	print $out "\tif (die_usage)\n";
-	print_exit_call($out,"\t\t",$config{die_status} // "FAILURE");
+	print $out "\tif (die_usage)\n\t\treturn;\n";
 
 	print_fputs($out, "\t", wrap("", $indent, $help{description}, $pagewidth), "\n", $stream) if $help{description};
 	if ($help{show_args} eq "yes") {
@@ -702,10 +686,11 @@ sub print_do_help_function {
 #print the do_version function
 sub print_do_version_function {
 	my ($out) = @_;
-	my $progname = cstring($config{progname}) // "save_argv[0]";
+	my $progname = cstring($config{progname}) // "argv0";
 	my $stream = $version{output} // "stdout";
 	my $indent = $version{indent} // " " x2;
-	print $out "PRIVATE void do_version(void)\n{\n";
+	print $out "PRIVATE void do_version(const char *argv0)\n{\n";
+	print $out "\t(void) argv0;\n" if $config{progname};
 	print $out qq @\tfprintf($stream, "%s %s\\n", $progname, $version{version});\n@ if ($version{version});
 	print $out qq @\tfputs(@ . cstring($version{copyright}) . qq @  "\\n", $stream);\n@ if ($version{copyright});
 	print $out qq @\tfputs("\\n", $stream);\n@;
@@ -791,47 +776,34 @@ sub print_impl {
 	print $out "#define ${prefix}_ERR_PTR ((void *)-1)\n";
 	print $out "\n";
 	print_enum($out, $_->{long}, $_->{short}, $_->{values}) for @enums;
-	print $out "static const char **save_argv;\nstatic int save_argc;\n";
-	print $out "static int first_arg;\n\n";
+	declare_struct($out);
+	declare_accessors($out);
 
 	# print the do_help,do_version function
 	print_do_help_function($out) if ($any_help_option || get_args_min_count() != 0 || defined get_args_max_count);
 	print_do_version_function($out) if ($any_version_option);
 
-	for my $option (grep { !defined $_->{reference} } @options) {
-		my $typename = $option->{type};
-		my $type = $types->{$typename};
-		my $name = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
-		declare_var ($out, $type->{ctype}, $option->{name}, $option->{init}, "static", $type->{generate_has});
-		print_get_func($out, $type->{ctype}, $name, "", $option->{name}) if $type->{generate_get};
-		print_has_func($out, $name, "", $option->{name}) if $type->{generate_has};
-		print $out "\n";
-	}
-
-	print $out "\n";
-	print $out "int ${prefix}_arg_count(void)\n{\n\treturn save_argc - first_arg;\n}\n\n";
-
-	print $out "const char *${prefix}_arg_get(int index)\n{";
-	print $out "\n\tif (index < 0 || first_arg + index > save_argc)\n\t\treturn NULL;" if $config{indexcheck};
-	print $out "\n\treturn save_argv[first_arg + index];\n";
-	print $out "}\n\n";
-
-	print $out "PRIVATE void warn_unknown(const char *option)\n{\n";
+	print $out "#define warn_unknown(_o) do { msg_unknown(_o); return -1; } while (0)\n" if ($config{unknown} // "die") eq "die";
+	print $out "#define warn_unknown(_o) do { msg_unknown(_o); } while (0)\n" if ($config{unknown} // "die") eq "warn";
+	print $out "#define warn_unknown(_o) do { } while (0)\n" if ($config{unknown} // "die") eq "ignore";
+	print $out "PRIVATE void msg_unknown(const char *option)\n{\n";
 	print $out "\tfprintf(stderr, " . cstring($lang{opt_unknown}) . " \"\\n\", option);\n";
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE") if ($config{unknown} // "die") eq "die";
+	print_exit_call($out, "\t", $config{die_status}) if $config{die_status} and ($config{unknown} // "die") eq "die";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_no_value(const char *option)\n{\n@;
+	print $out "#define die_no_value(_o) do { msg_no_value(_o); return -1; } while (0)\n";
+	print $out qq @PRIVATE void msg_no_value(const char *option)\n{\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_no_val}) . qq @ "\\n", option);\n@;
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
+	print_exit_call($out, "\t", $config{die_status}) if $config{die_status};
 	print $out "}\n\n";
 
 	print $out "PRIVATE int streq(const char *a, const char *b)\n{\n\treturn !strcmp(a, b);\n";
 	print $out "}\n\n";
 
-	print $out qq @PRIVATE void die_invalid_value(const char *option, const char *value)\n{\n@;
+	print $out "#define die_invalid_value(_o, _v) do { msg_invalid_value((_o), (_v)); return -1; } while (0)\n";
+	print $out qq @PRIVATE void msg_invalid_value(const char *option, const char *value)\n{\n@;
 	print $out qq @\tfprintf(stderr, @ . cstring($lang{opt_bad_val}) . qq @ "\\n", option, value);\n@;
-	print_exit_call($out, "\t", $config{die_status} // "FAILURE");
+	print_exit_call($out, "\t", $config{die_status}) if $config{die_status};
 	print $out "}\n\n";
 
 	print $out "PRIVATE const char *skip_unique_option_name(const char *word, const char *name)\n{\n";
@@ -843,8 +815,9 @@ sub print_impl {
 	print $out "}\n\n";
 
 	# print opt_parse / ${prefix}_parse
-	print $out "void ${prefix}_parse(int argc, const char **argv)\n{\n";
-	print $out "\tsave_argv = argv;\n\tsave_argc = argc;\n";
+	print $out "int ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result)\n{\n";
+	print $out "\tresult->argc = argc;\n\tresult->argv = argv;\n";
+	print $out "\tresult->$_->{name}_value = $_->{init};\n" for grep { defined $_->{init} } @options;
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
@@ -884,26 +857,29 @@ sub print_impl {
 			print $out "\t\t}\n";
 
 			print $out "\t\t" . (join "\n\t\telse ", map { "if (streq(option_arg, " . cstring($_) . "))\n\t\t\toption_arg = " . cstring($replace{$_}) . ";" } keys %replace) . "\n" if %replace;
-			print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
-			&$assign_func($out, "\t\t", "option_name", "${prefix}_var_$name", $o, "option_arg");
-			print_verify($out, "\t\t", "option_name", "${prefix}_var_$name", "option_arg", $o->{verify}) if $o->{verify};
+			print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
+			&$assign_func($out, "\t\t", "option_name", "result->${name}_value", $o, "option_arg");
+			print_verify($out, "\t\t", "option_name", "result->${name}_value", "option_arg", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
+			print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
 			if ($o->{long}) {
 				# --flag, -f
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
-				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
-				print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
+				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
+				print_exit_call($out, "\t\t", $o->{exit}) if defined  $o->{exit};
+				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
-				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
+				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
+				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_char;\n\t}\n";
 			}
 		}
@@ -936,12 +912,16 @@ sub print_impl {
 	print $out "state_stop_option_processing:\n\tif (permute)\n\t\tmemcpy(args + nargs, argv + word_idx, (argc - word_idx) * sizeof(char *));\n\tnargs += argc - word_idx;\n";
 	print $out "state_check_args:\n";
 	print $out "\tif (permute) {\n\t\tmemcpy(argv + 1, opts, nopts * sizeof(char *));\n\t\tmemcpy(argv + 1 + nopts, args, nargs * sizeof(char *));\n\t}\n";
-	print $out "\tfirst_arg = argc - nargs;\n";
 	my $minargs = get_args_min_count();
 	my $maxargs = get_args_max_count();
-	print $out "\tif (nargs < $minargs)\n\t\tdo_help(1);\n" if ($minargs != 0);
-	print $out "\tif (nargs > $maxargs)\n\t\tdo_help(1);\n" if (defined $maxargs);
-	print $out "\treturn;\n";
+	my $args_condition = join " || ", ($minargs != 0 ? ("nargs < $minargs") : (), defined $maxargs ? ("nargs > $maxargs") : ());
+	if ($args_condition) {
+		print $out "\tif ($args_condition) {\n\t\tdo_help(argv[0], 1);\n";
+		print_exit_call($out, "\t\t", $config{die_status}) if $config{die_status};
+		print $out "\t\treturn -1;\n\t}\n";
+	}
+	print $out "\tresult->nargs = nargs;\n\tresult->args = argv + argc - nargs;\n";
+	print $out "\treturn 0;\n";
 
 	print $out "} /* end of: ${prefix}_parse */\n\n";
 	close $out;
