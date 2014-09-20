@@ -460,11 +460,11 @@ sub declare_struct {
 	my ($out) = @_;
 	print $out "struct ${prefix}_options {\n";
 	print $out "\tint argc;\n\tint nargs;\n\tconst char **argv;\n\tconst char **args;\n";
-	for my $o (sort { $a->{type} <=> $b->{type} } @options) {
+	for my $o (sort { $a->{type} <=> $b->{type} } grep { !defined $_->{reference} } @options) {
 		my $type = $types->{$o->{type}};
 		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
 	}
-	for my $o (grep { !defined $_->{exit} } @options) {
+	for my $o (grep { !defined $_->{exit} } grep { !defined $_->{reference} } @options) {
 		my $type = $types->{$o->{type}};
 		print $out "\tbool $o->{name}_given;\n" if $type->{generate_has};
 	}
@@ -478,7 +478,7 @@ sub declare_accessors {
 	print $out "#define ${prefix}_argv(_x) ((_x).argv)\n";
 	print $out "#define ${prefix}_nargs(_x) ((_x).nargs)\n";
 	print $out "#define ${prefix}_arg(_x, _i) ((_x).args[(_i)])\n";
-	for my $o (@options) {
+	for my $o (grep { !defined $_->{reference} } @options) {
 		my $type = $types->{$o->{type}};
 		my @names = map { s/-/_/gr } split ",", $o->{long};
 		push @names, $o->{short} if $o->{short};
