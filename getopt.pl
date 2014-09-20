@@ -887,7 +887,7 @@ sub print_impl {
 			print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
 			&$assign_func($out, "\t\t", "option_name", "${prefix}_var_$name", $o, "option_arg");
 			print_verify($out, "\t\t", "option_name", "${prefix}_var_$name", "option_arg", $o->{verify}) if $o->{verify};
-			print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+			print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
 			if ($o->{long}) {
@@ -896,14 +896,14 @@ sub print_impl {
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
 				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
-				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+				print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
 				print $out "\t\t${prefix}_varhas_$name = true;\n" if ($type->{generate_has});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "${prefix}_var_$name", $o, $o->{value} // 1);
-				print_exit_call($out, "\t\t", $o->{exit}) if $o->{exit};
+				print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
 				print $out "\t\tgoto next_char;\n\t}\n";
 			}
 		}
