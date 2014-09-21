@@ -527,7 +527,6 @@ sub verify_config {
 		die "option #$cnt: the properties break and exit conflict\n" if defined $option->{exit} and defined $option->{break} and $option->{break} eq "yes";
 		die "option #$cnt: the property break must be either 'yes' or 'no'" if defined $option->{break} and !is_one_of($option->{break}, "yes", "no");
 		$option->{name} = $option->{short} // (split ",", $option->{long})[0] =~ s/-/_/gr;
-		$option->{name} .= "_option";
 		$any_help_option = 1 if ($option->{type} eq "help");
 		$any_version_option = 1 if ($option->{type} eq "version");
 		$any_short_option = 1 if defined $option->{short};
