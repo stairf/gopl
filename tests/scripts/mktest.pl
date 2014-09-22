@@ -71,6 +71,10 @@ my $types = {
 		generate_get => 1,
 		format => "%d",
 	},
+	switch => {
+		generate_get => 1,
+		format => "%d",
+	},
 	enum => {
 		generate_has => 1,
 		generate_get => 1,
