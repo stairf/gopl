@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 #   getopt.pl - command line options parser generator
-#	COPYRIGHT (C) 2013 Stefan Reif -- reif_stefan@web.de
+#	COPYRIGHT (C) 2013 Stefan Reif
 #
 #	This program is free software: you can redistribute it and/or modify
 #	it under the terms of the GNU General Public License as published by
