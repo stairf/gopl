@@ -154,6 +154,15 @@ sub int_check_value {
 	return 1;
 } # sub int_check_value
 
+# check value for type "string"
+sub string_check_value {
+	my ($option, $value, $convert) = @_;
+	return 0 if $convert;
+	return 1 if $value !~ s/^"(.*)"$/$1/;
+	return 1 if $value =~ /^"/ or $value =~ /[^\\]"/;
+	return 0;
+} # sub string_check_value
+
 # print assignment for type "string"
 sub string_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -322,6 +331,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { string_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { string_check_value(@_) },
 	},
 	int => {
 		ctype => "int",
