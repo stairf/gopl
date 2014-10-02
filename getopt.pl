@@ -816,7 +816,8 @@ sub print_impl {
 	# print opt_parse / ${prefix}_parse
 	print $out "int ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result)\n{\n";
 	print $out "\tresult->argc = argc;\n\tresult->argv = argv;\n";
-	print $out "\tresult->$_->{name}_value = $_->{init};\n" for grep { defined $_->{init} } @options;
+	print $out "\tresult->$_->{name}_value = $_->{init};\n" for grep { defined $_->{init} and ($_->{type} ne "enum" or !is_one_of($_->{init}, split ",", $_->{values})) } @options;
+	print $out "\tresult->$_->{name}_value = ${prefix}_value_$_->{name}_" . ($_->{init} =~ s/-/_/gr) .";\n" for grep { defined $_->{init} and $_->{type} eq "enum" and is_one_of($_->{init}, split ",", $_->{values}) } @options;
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
