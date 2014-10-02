@@ -163,6 +163,13 @@ sub string_check_value {
 	return 0;
 } # sub string_check_value
 
+# check value for type "enum"
+sub enum_check_value {
+	my ($option, $value, $convert) = @_;
+	return 1 if !is_one_of($value, split ",", $option->{values});
+	return 0;
+} # sub enum_check_value
+
 # print assignment for type "string"
 sub string_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -464,6 +471,7 @@ my $types = {
 		generate_get => 1,
 		print_assign => sub { enum_print_assign(@_) },
 		may_verify => 0,
+		check_value => sub { enum_check_value(@_) },
 	},
 }; # my $types
 
