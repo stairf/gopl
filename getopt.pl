@@ -481,7 +481,7 @@ sub declare_accessors {
 	for my $o (grep { !defined $_->{reference} } @options) {
 		my $type = $types->{$o->{type}};
 		my @names = map { s/-/_/gr } split ",", $o->{long};
-		push @names, $o->{short} if $o->{short};
+		push @names, $o->{short} if defined $o->{short};
 		if ($type->{generate_has} and !defined $o->{exit}) {
 			print $out "#define ${prefix}_${_}_given(_x) ((_x)._$o->{name}_given)\n" for @names;
 		}
@@ -843,8 +843,8 @@ sub print_impl {
 		my @longnames = split ",", $o->{long};
 		my %replace = %{ $o->{replace} // {} };
 		if ($type->{needs_val}) {
-			print $out "state_assign_${name}_long:\n" if $o->{long};
-			print $out "state_assign_${name}_short:\n" if $o->{short};
+			print $out "state_assign_${name}_long:\n" if defined $o->{long};
+			print $out "state_assign_${name}_short:\n" if defined $o->{short};
 			# --option=value, --option value, -ovalue, -o value
 			print $out "\t{\n\t\tif (!option_arg) {\n";
 			if ($o->{optional} eq "yes") {
@@ -864,7 +864,7 @@ sub print_impl {
 			print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 			print $out "\t\tgoto next_word;\n\t}\n";
 		} else {
-			if ($o->{long}) {
+			if (defined $o->{long}) {
 				# --flag, -f
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
@@ -874,7 +874,7 @@ sub print_impl {
 				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
-			if ($o->{short}) {
+			if (defined $o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
 				print $out "\t\tresult->_${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
 				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->_${name}_value", $o, $o->{value} // 1);
