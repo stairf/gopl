@@ -135,7 +135,7 @@ for my $o (@options) {
 
 print $out qq @
 	for (int i = 0; i < opt_nargs(o); ++i) {
-		printf("'%s' ", opt_arg(o,i));
+		printf("\@%d='%s' ", i, opt_arg(o,i));
 	}
 	printf("\\n");
 	exit(0);

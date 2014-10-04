@@ -1,15 +1,15 @@
 
 < a b
-'a' 'b'
+@0='a' @1='b'
 
 < a b c
-'a' 'b' 'c'
+@0='a' @1='b' @2='c'
 
 < a b c d
-'a' 'b' 'c' 'd'
+@0='a' @1='b' @2='c' @3='d'
 
 < foo bar foobar
-'foo' 'bar' 'foobar'
+@0='foo' @1='bar' @2='foobar'
 
 ! --help
 !
