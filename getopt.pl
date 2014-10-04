@@ -450,7 +450,7 @@ sub ref_print_assign {
 		print $out $indent . "goto state_assign_$ref->{reference}->{name}" . ($ref->{reference}->{short} ? "_short" : "_long" ). ";\n";
 	} else {
 		my $assign_func = $rtype->{print_assign};
-		&$assign_func($out, $indent, $option, "result->$ref->{reference}->{name}_value", $ref->{reference}, $src);
+		&$assign_func($out, $indent, $option, "result->_$ref->{reference}->{name}_value", $ref->{reference}, $src);
 	}
 	return 1;
 } # sub ref_print_assign
@@ -462,11 +462,11 @@ sub declare_struct {
 	print $out "\tint argc;\n\tint nargs;\n\tconst char **argv;\n\tconst char **args;\n";
 	for my $o (sort { $a->{type} <=> $b->{type} } grep { !defined $_->{reference} } @options) {
 		my $type = $types->{$o->{type}};
-		print $out "\t$type->{ctype} $o->{name}_value;\n" if $type->{generate_get};
+		print $out "\t$type->{ctype} _$o->{name}_value;\n" if $type->{generate_get};
 	}
 	for my $o (grep { !defined $_->{exit} } grep { !defined $_->{reference} } @options) {
 		my $type = $types->{$o->{type}};
-		print $out "\tbool $o->{name}_given;\n" if $type->{generate_has};
+		print $out "\tbool _$o->{name}_given;\n" if $type->{generate_has};
 	}
 	print $out "}; /* end of struct ${prefix}_options */\n\n";
 } # sub declare_struct
@@ -483,10 +483,10 @@ sub declare_accessors {
 		my @names = map { s/-/_/gr } split ",", $o->{long};
 		push @names, $o->{short} if $o->{short};
 		if ($type->{generate_has} and !defined $o->{exit}) {
-			print $out "#define ${prefix}_${_}_given(_x) ((_x).$o->{name}_given)\n" for @names;
+			print $out "#define ${prefix}_${_}_given(_x) ((_x)._$o->{name}_given)\n" for @names;
 		}
 		if ($type->{generate_get}) {
-			print $out "#define ${prefix}_${_}_value(_x) ((_x).$o->{name}_value)\n" for @names;
+			print $out "#define ${prefix}_${_}_value(_x) ((_x)._$o->{name}_value)\n" for @names;
 		}
 	}
 	print $out "\n";
@@ -816,8 +816,8 @@ sub print_impl {
 	# print opt_parse / ${prefix}_parse
 	print $out "int ${prefix}_parse(int argc, const char **argv, struct ${prefix}_options *result)\n{\n";
 	print $out "\tresult->argc = argc;\n\tresult->argv = argv;\n";
-	print $out "\tresult->$_->{name}_value = $_->{init};\n" for grep { defined $_->{init} and ($_->{type} ne "enum" or !is_one_of($_->{init}, split ",", $_->{values})) } @options;
-	print $out "\tresult->$_->{name}_value = ${prefix}_value_$_->{name}_" . ($_->{init} =~ s/-/_/gr) .";\n" for grep { defined $_->{init} and $_->{type} eq "enum" and is_one_of($_->{init}, split ",", $_->{values}) } @options;
+	print $out "\tresult->_$_->{name}_value = $_->{init};\n" for grep { defined $_->{init} and ($_->{type} ne "enum" or !is_one_of($_->{init}, split ",", $_->{values})) } @options;
+	print $out "\tresult->_$_->{name}_value = ${prefix}_value_$_->{name}_" . ($_->{init} =~ s/-/_/gr) .";\n" for grep { defined $_->{init} and $_->{type} eq "enum" and is_one_of($_->{init}, split ",", $_->{values}) } @options;
 	print $out "\tconst char *option_arg;\n\tconst char *option_name;\n";
 	print $out "\tint word_idx = 0;\n\tint char_idx = 0;\n";
 	print $out "\tchar short_option_buf[3] = { '-', '\\0', '\\0' };\n";
@@ -857,9 +857,9 @@ sub print_impl {
 			print $out "\t\t}\n";
 
 			print $out "\t\t" . (join "\n\t\telse ", map { "if (streq(option_arg, " . cstring($_) . "))\n\t\t\toption_arg = " . cstring($replace{$_}) . ";" } keys %replace) . "\n" if %replace;
-			print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
-			&$assign_func($out, "\t\t", "option_name", "result->${name}_value", $o, "option_arg");
-			print_verify($out, "\t\t", "option_name", "result->${name}_value", "option_arg", $o->{verify}) if $o->{verify};
+			print $out "\t\tresult->_${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
+			&$assign_func($out, "\t\t", "option_name", "result->_${name}_value", $o, "option_arg");
+			print_verify($out, "\t\t", "option_name", "result->_${name}_value", "option_arg", $o->{verify}) if $o->{verify};
 			print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
 			print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 			print $out "\t\tgoto next_word;\n\t}\n";
@@ -868,16 +868,16 @@ sub print_impl {
 				# --flag, -f
 				print $out "state_assign_${name}_long:\n\t{\n";
 				print $out "\t\tif (option_arg)\n\t\t\tgoto unknown_long;\n";
-				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
+				print $out "\t\tresult->_${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->_${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if defined  $o->{exit};
 				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_word;\n\t}\n";
 			}
 			if ($o->{short}) {
 				print $out "state_assign_${name}_short:\n\t{\n";
-				print $out "\t\tresult->${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
-				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->${name}_value", $o, $o->{value} // 1);
+				print $out "\t\tresult->_${name}_given = true;\n" if ($type->{generate_has} and !defined $o->{exit});
+				&$assign_func($out, "\t\t", "\"--$o->{long}\"", "result->_${name}_value", $o, $o->{value} // 1);
 				print_exit_call($out, "\t\t", $o->{exit}) if defined $o->{exit};
 				print $out "\t\treturn 1;\n" if ($o->{break} // "no") eq "yes";
 				print $out "\t\tgoto next_char;\n\t}\n";
