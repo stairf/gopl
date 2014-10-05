@@ -117,7 +117,7 @@ for my $o (@options) {
 			if (opt_${_}_given(o)) {
 				printf("$_='$t->{format}' ", opt_${_}_value(o));
 			}
-		@ for split ',', $long;
+		@ for map { s/-/_/gr } split ',', $long;
 		print $out qq @
 			if (opt_${short}_given(o)) {
 				printf("$short='$t->{format}' ", opt_${short}_value(o));
@@ -126,7 +126,7 @@ for my $o (@options) {
 	} elsif ($t->{generate_get}) {
 		print $out qq @
 			printf("$_='$t->{format}' ", opt_${_}_value(o));
-		@ for split ',', $long;
+		@ for map { s/-/_/gr } split ',', $long;
 		print $out qq @
 			printf("$short='$t->{format}' ", opt_${short}_value(o));
 		@ if defined $short;
