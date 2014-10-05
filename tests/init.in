@@ -1,0 +1,17 @@
+
+<
+x='2' asdf='init'
+
+< a
+x='2' asdf='init' @0='a'
+
+< -xfoo
+x='0' asdf='init'
+
+< xx -xbar --as=df yy
+x='1' asdf='df' @0='xx' @1='yy'
+
+! -xbaz
+! -asdf
+! -as
+
