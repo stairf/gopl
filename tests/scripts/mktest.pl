@@ -112,7 +112,7 @@ for my $o (@options) {
 	my $long = $o->{long};
 	my $t = $types->{$type};
 	die "unknown type: $type\n" unless $t;
-	if ($t->{generate_has}) {
+	if ($t->{generate_has} and !defined $o->{init}) {
 		print $out qq @
 			if (opt_${_}_given(o)) {
 				printf("$_='$t->{format}' ", opt_${_}_value(o));
@@ -130,6 +130,8 @@ for my $o (@options) {
 		print $out qq @
 			printf("$short='$t->{format}' ", opt_${short}_value(o));
 		@ if defined $short;
+	} else {
+		die "cannot test option { " . (join ", ", map { "$_ => '$o->{$_}'" } keys %$o) . " } \n"
 	}
 }
 
