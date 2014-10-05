@@ -163,6 +163,15 @@ sub string_check_value {
 	return 0;
 } # sub string_check_value
 
+# check value for type "char"
+sub char_check_value {
+	my ($option, $value, $convert) = @_;
+	$convert or !int_check_value($option, $value, 0) or $value =~ s/^'(.*)'$/$1/ or return 1;
+	return 0 if !$convert and !int_check_value($option, $value, 0);
+	return 0 if $value =~ /^[a-zA-Z0-9]$/ or $value =~ /^\\[fnrtv]$/;
+	return 1;
+} # sub char_check_value
+
 # check value for type "enum"
 sub enum_check_value {
 	my ($option, $value, $convert) = @_;
@@ -425,6 +434,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { char_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { char_check_value(@_) },
 	},
 	flag => {
 		ctype => "int",
