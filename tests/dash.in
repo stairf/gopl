@@ -1,0 +1,18 @@
+
+< --foo-bar=foo-bar
+foo_bar='foo-bar'
+
+< --foo bar
+foo_bar='bar'
+
+< --as-df 5
+as_df='5' df_gh='5'
+
+< --as-df 5 --df 6
+as_df='6' df_gh='6'
+
+! --as
+! --df
+! --foo
+! --as df
+

@@ -1,0 +1,33 @@
+
+<
+t='A'
+
+< -tfoo --foo x
+t='f' foo='yz'
+
+< --foo=y
+t='A' foo='zz'
+
+< --foo=zz
+t='A' foo='zz'
+
+< --foo=x --bar y -- -1
+t='A' foo='yz' bar='-1' @0='-1'
+
+< -ef
+t='A' e='2'
+
+< -eb --b x y
+t='A' e='1' bar='255' @0='y'
+
+< -tbar -ebar --bar=y bar
+t='b' e='1' bar='-1' @0='bar'
+
+< --foo=
+t='A' foo='empty'
+
+! --bar
+! --foo
+! -e --foo
+! -tfoo-bar
+

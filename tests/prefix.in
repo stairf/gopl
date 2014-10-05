@@ -24,10 +24,10 @@ foobar='x'
 foobar='a' bar='b'
 
 < --foo -- x y
-foo='--' 'x' 'y'
+foo='--' @0='x' @1='y'
 
 < --foob -- --b c -- --fo
-foobar='--' bar='c' '--fo'
+foobar='--' bar='c' @0='--fo'
 
 ! --f
 ! --f=a

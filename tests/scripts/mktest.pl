@@ -112,12 +112,12 @@ for my $o (@options) {
 	my $long = $o->{long};
 	my $t = $types->{$type};
 	die "unknown type: $type\n" unless $t;
-	if ($t->{generate_has}) {
+	if ($t->{generate_has} and !defined $o->{init}) {
 		print $out qq @
 			if (opt_${_}_given(o)) {
 				printf("$_='$t->{format}' ", opt_${_}_value(o));
 			}
-		@ for split ',', $long;
+		@ for map { s/-/_/gr } split ',', $long;
 		print $out qq @
 			if (opt_${short}_given(o)) {
 				printf("$short='$t->{format}' ", opt_${short}_value(o));
@@ -126,16 +126,18 @@ for my $o (@options) {
 	} elsif ($t->{generate_get}) {
 		print $out qq @
 			printf("$_='$t->{format}' ", opt_${_}_value(o));
-		@ for split ',', $long;
+		@ for map { s/-/_/gr } split ',', $long;
 		print $out qq @
 			printf("$short='$t->{format}' ", opt_${short}_value(o));
 		@ if defined $short;
+	} else {
+		die "cannot test option { " . (join ", ", map { "$_ => '$o->{$_}'" } keys %$o) . " } \n"
 	}
 }
 
 print $out qq @
 	for (int i = 0; i < opt_nargs(o); ++i) {
-		printf("'%s' ", opt_arg(o,i));
+		printf("\@%d='%s' ", i, opt_arg(o,i));
 	}
 	printf("\\n");
 	exit(0);
