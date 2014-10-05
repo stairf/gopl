@@ -143,6 +143,48 @@ sub print_enum {
 	print $out "};\n\n";
 } # sub print_enum
 
+# check value for type "int"
+sub int_check_value {
+	my ($option, $value, $convert) = @_;
+	$value =~ s/^-//;
+	return 1 if $value eq "";
+	return 0 if (!$convert or $o->{type} =~ /xint/) and $value =~ /^0x/ and $value =~ /^0x[a-fA-F0-9]+$/;
+	return 0 if ($convert or $value =~ /^0[^x]/) and $value =~ /^0[0-7]*$/;
+	return 0 if ($convert or $value !~ /^0\d+/) and $value !~ /[^0-9]/;
+	return 1;
+} # sub int_check_value
+
+# check value for type "string"
+sub string_check_value {
+	my ($option, $value, $convert) = @_;
+	return 0 if $convert;
+	return 1 if $value !~ s/^"(.*)"$/$1/;
+	return 1 if $value =~ /^"/ or $value =~ /[^\\]"/;
+	return 0;
+} # sub string_check_value
+
+# check value for type "char"
+sub char_check_value {
+	my ($option, $value, $convert) = @_;
+	$convert or !int_check_value($option, $value, 0) or $value =~ s/^'(.*)'$/$1/ or return 1;
+	return 0 if !$convert and !int_check_value($option, $value, 0);
+	return 0 if $value =~ /^[a-zA-Z0-9]$/ or $value =~ /^\\[fnrtv]$/;
+	return 1;
+} # sub char_check_value
+
+# check value for type "enum"
+sub enum_check_value {
+	my ($option, $value, $convert) = @_;
+	return 1 if !is_one_of($value, split ",", $option->{values});
+	return 0;
+} # sub enum_check_value
+
+# check value for type "flag"
+sub flag_check_value {
+	my ($option, $value, $convert) = @_;
+	return int_check_value($option, $value, 0);
+} # sub flag_check_value
+
 # print assignment for type "string"
 sub string_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -311,6 +353,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { string_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { string_check_value(@_) },
 	},
 	int => {
 		ctype => "int",
@@ -319,6 +362,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { int_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { int_check_value(@_) },
 	},
 	lint => {
 		ctype => "long",
@@ -327,6 +371,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { int_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { int_check_value(@_) },
 	},
 	llint => {
 		ctype => "long long",
@@ -335,6 +380,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { llint_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { int_check_value(@_) },
 	},
 	xint => {
 		ctype => "int",
@@ -343,6 +389,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { xint_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { int_check_value(@_) },
 	},
 	lxint => {
 		ctype => "long",
@@ -351,6 +398,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { xint_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { int_check_value(@_) },
 	},
 	llxint => {
 		ctype => "long long",
@@ -359,6 +407,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { llxint_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { int_check_value(@_) },
 	},
 	float => {
 		ctype => "float",
@@ -391,6 +440,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { char_print_assign(@_) },
 		may_verify => 1,
+		check_value => sub { char_check_value(@_) },
 	},
 	flag => {
 		ctype => "int",
@@ -400,6 +450,7 @@ my $types = {
 		print_assign => sub { flag_print_assign(@_) },
 		may_verify => 0,
 		may_reference => 1,
+		check_value => sub { flag_check_value(@_) },
 	},
 	counter => {
 		ctype => "int",
@@ -408,6 +459,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { counter_print_assign(@_) },
 		may_verify => 0,
+		check_value => sub { flag_check_value(@_) },
 	},
 	help => {
 		needs_val => 0, # TODO: topic --> "optional"
@@ -437,6 +489,7 @@ my $types = {
 		generate_get => 1,
 		print_assign => sub { enum_print_assign(@_) },
 		may_verify => 0,
+		check_value => sub { enum_check_value(@_) },
 	},
 }; # my $types
 
@@ -454,6 +507,15 @@ sub ref_print_assign {
 	}
 	return 1;
 } # sub ref_print_assign
+
+# check a value for an option
+sub check_value {
+	my ($cnt, $o, $value, $convert) = @_;
+	my $type = $types->{$o->{type}};
+	my $func = $type->{check_value};
+	return unless defined $func;
+	warn "probably invalid value for option #$cnt: `$value'\n" if &$func($o, $value, $convert);
+} # sub check_value
 
 # declare the opt_options struct
 sub declare_struct {
@@ -548,6 +610,11 @@ sub verify_config {
 			die "option #$cnt: option '$option->{reference}' cannot be referenced\n" unless $types->{$refopt->{type}}->{ctype};
 			$option->{reference} = $refopt;
 		}
+		check_value($cnt, $option, $option->{init}, 0) if defined $option->{init};
+		check_value($cnt, $option, $_, 1) for values ($option->{replace} // {});
+		check_value($cnt, $option, $option->{default}, 1) if defined $option->{default};
+		check_value($cnt, $option->{reference}, $option->{value}, 1) if defined $option->{reference};
+		check_value($cnt, $option, $option->{value}, 0) if defined $option->{value} and !defined $option->{reference};
 		$cnt++;
 	}
 	$prefix = $config{prefix} if defined $config{prefix};
