@@ -179,6 +179,12 @@ sub enum_check_value {
 	return 0;
 } # sub enum_check_value
 
+# check value for type "flag"
+sub flag_check_value {
+	my ($option, $value, $convert) = @_;
+	return int_check_value($option, $value, 0);
+} # sub flag_check_value
+
 # print assignment for type "string"
 sub string_print_assign {
 	my ($out, $indent, $option, $varname, $ref, $src) = @_;
@@ -444,6 +450,7 @@ my $types = {
 		print_assign => sub { flag_print_assign(@_) },
 		may_verify => 0,
 		may_reference => 1,
+		check_value => sub { flag_check_value(@_) },
 	},
 	counter => {
 		ctype => "int",
@@ -452,6 +459,7 @@ my $types = {
 		generate_get => 1, #true
 		print_assign => sub { counter_print_assign(@_) },
 		may_verify => 0,
+		check_value => sub { flag_check_value(@_) },
 	},
 	help => {
 		needs_val => 0, # TODO: topic --> "optional"
@@ -606,6 +614,7 @@ sub verify_config {
 		check_value($cnt, $option, $_, 1) for values ($option->{replace} // {});
 		check_value($cnt, $option, $option->{default}, 1) if defined $option->{default};
 		check_value($cnt, $option->{reference}, $option->{value}, 1) if defined $option->{reference};
+		check_value($cnt, $option, $option->{value}, 0) if defined $option->{value} and !defined $option->{reference};
 		$cnt++;
 	}
 	$prefix = $config{prefix} if defined $config{prefix};
