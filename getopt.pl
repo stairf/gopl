@@ -632,6 +632,8 @@ sub verify_config {
 	die "\$config{unknown} must be 'die','warn' or 'ignore'\n" if (defined $config{unknown} and !is_one_of($config{unknown},'die','warn','ignore'));
 	die "\$config{permute} must be 'yes', or 'auto', or 'no'\n" if (defined $config{permute} and !is_one_of($config{permute},'yes','no', 'auto'));
 	die "\$config{include} must be an array reference\n" if (defined $config{include} and ref $config{include} ne "ARRAY");
+	die "\$config{prefix} is invalid\n" if (($config{prefix} // "a") !=  /^[a-zA-Z_][a-zA-Z0-9_]*$/);
+	die "\$config{iguard} is invalid\n" if (($config{iguard} // "a") !=  /^[a-zA-Z_][a-zA-Z0-9_]*$/);
 
 	die "\$help{show_args} must be 'yes' or 'no'\n" if (defined $help{show_args} and !is_one_of($help{show_args},'yes','no'));
 	die "\$help{show_options} must be 'yes' or 'no'\n" if (defined $help{show_options} and !is_one_of($help{show_options},'yes','no'));
