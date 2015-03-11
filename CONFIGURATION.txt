@@ -282,6 +282,14 @@ unknown keys are ignored. The following key-value pairs are supported:
                          the exit option property. When not defined, then the
                          parser returns a negative error value.
 
+  negation    "no-"  Switch negation prefix
+                         Each option of type switch results in a pair of
+                         options, where one resets the effect of the other, and
+                         vice versa. The value controls the prefix of the
+                         negation option name, which is derived automatically
+                         from the original option name. The resulting option
+                         name must be a valid long name.
+
 
 == 4. The %help hash ==
 The help hash specifies the content of the help text. The following keys exist:

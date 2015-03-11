@@ -574,7 +574,7 @@ sub verify_config {
 			my @lnames = defined $option->{long} ? split /,/, $option->{long} : ();
 			unshift @lnames, $option->{short} if defined $option->{short};
 			$option->{type} = "flag";
-			my $no_option = { type => "flag", reference => "$lnames[0]", long => (join ",", map { "no-$_" } @lnames), value => $option->{init} // "0" };
+			my $no_option = { type => "flag", reference => "$lnames[0]", long => (join ",", map { ($config{negation} // "no-") . $_ } @lnames), value => $option->{init} // "0" };
 			@options = map { $_ == $option  ? ($option, $no_option) : ($_) } @options;
 		}
 		die "option #$cnt has an unknown type: $option->{type}\n" unless (defined $types->{$option->{type}});
