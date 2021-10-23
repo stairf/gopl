@@ -47,11 +47,11 @@ clean:
 
 %.gopl.c %.gopl.h %.gopl.d: %.go.pl $(GOPL)
 	@echo "GOPL $*"
-	@$(GOPL) -c $*.gopl.c -h $*.gopl.h -d $*.gopl.d $<
+	@$(GOPL) -c $*.gopl.c -h $*.gopl.h -d $*.gopl.d $(<:%=./%)
 
 $(T_SRC): %.c: %.go.pl
 	@echo "GEN  $@"
-	@$(PERL) $(SCRIPTDIR)/mktest.pl $< $@
+	@$(PERL) $(SCRIPTDIR)/mktest.pl $(<:%=./%) $@
 
 $(T_RUN): %.run: %.bin
 	@echo "RUN  $*"

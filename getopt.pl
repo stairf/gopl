@@ -611,7 +611,7 @@ sub verify_config {
 			$option->{reference} = $refopt;
 		}
 		check_value($cnt, $option, $option->{init}, 0) if defined $option->{init};
-		check_value($cnt, $option, $_, 1) for values ($option->{replace} // {});
+		check_value($cnt, $option, $_, 1) for values (%{$option->{replace} // {} } );
 		check_value($cnt, $option, $option->{default}, 1) if defined $option->{default};
 		check_value($cnt, $option->{reference}, $option->{value}, 1) if defined $option->{reference};
 		check_value($cnt, $option, $option->{value}, 0) if defined $option->{value} and !defined $option->{reference};
