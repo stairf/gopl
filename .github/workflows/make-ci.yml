@@ -1,0 +1,11 @@
+name: make-tests
+on: [push]
+jobs:
+  run-make-tests:
+    name: Invoke make in tests folder
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make -C tests
+      - run: make -C tests clean
+

@@ -1,6 +1,8 @@
 getopt.pl (GOPL)
 ================
 
+![make-ci](https://github.com/stairf/gopl/actions/workflows/make-ci.yml/badge.svg)
+
 GOPL is a simple but powerful command-line argument parser generator for C
 programs.
 
